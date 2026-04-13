@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
-  View,
+  StatusBar,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -205,6 +205,7 @@ function HomeScreen() {
 export default function App() {
   return (
     <ToastProvider>
+      <StatusBar barStyle={'dark-content'} backgroundColor="#000000" />
       <HomeScreen />
     </ToastProvider>
   );

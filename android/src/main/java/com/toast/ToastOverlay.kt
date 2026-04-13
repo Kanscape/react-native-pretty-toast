@@ -1,10 +1,12 @@
 package com.toast
 
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
@@ -12,6 +14,8 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -29,7 +33,22 @@ class ToastOverlay(private val activity: Activity) {
     private var iconView: ImageView? = null
     private var titleView: TextView? = null
     private var messageView: TextView? = null
+    private var contentContainer: LinearLayout? = null
     private var statusBarHeight: Int = 0
+
+    // Cutout detection
+    private var hasCenterCutout = false
+    private var cutoutRect: Rect? = null
+    // Collapsed dimensions based on actual cutout size, with padding
+    private val collapsedWidth: Float get() {
+        val cutoutW = cutoutRect?.width()?.toFloat() ?: dpToPx(120f)
+        // Make collapsed pill wider than the cutout itself (like iOS DI capsule)
+        return (cutoutW * 1.5f).coerceAtLeast(dpToPx(120f))
+    }
+    private val collapsedHeight: Float get() {
+        val cutoutH = cutoutRect?.height()?.toFloat() ?: dpToPx(36f)
+        return cutoutH.coerceAtLeast(dpToPx(36f))
+    }
 
     private val handler = Handler(Looper.getMainLooper())
     private var dismissRunnable: Runnable? = null
@@ -76,27 +95,33 @@ class ToastOverlay(private val activity: Activity) {
             messageView?.visibility = View.GONE
         }
 
-        // Setup gestures
         setupGestures(pill, enableSwipeDismiss)
 
         if (!isShowing) {
             isShowing = true
             overlayContainer?.visibility = View.VISIBLE
 
-            // Start offscreen
-            pill.translationY = -dpToPx(200f)
+            // Reset all transforms from any previous animation
+            pill.animate().cancel()
+            contentContainer?.animate()?.cancel()
+            pill.translationY = 0f
+            pill.scaleX = 1f
+            pill.scaleY = 1f
             pill.alpha = 1f
+            contentContainer?.alpha = 1f
 
-            // Spring animate in
-            val spring = SpringAnimation(pill, DynamicAnimation.TRANSLATION_Y, 0f)
-            spring.spring.apply {
-                dampingRatio = 0.75f
-                stiffness = SpringForce.STIFFNESS_MEDIUM
+            // Hide status bar when showing toast
+            if (hasCenterCutout) {
+                hideStatusBar()
             }
-            spring.start()
+
+            if (hasCenterCutout) {
+                showWithCutoutAnimation(pill)
+            } else {
+                showWithSlideAnimation(pill)
+            }
         }
 
-        // Auto-dismiss
         if (autoDismiss && duration > 0) {
             dismissRunnable = Runnable { dismiss() }
             handler.postDelayed(dismissRunnable!!, duration.toLong())
@@ -115,7 +140,104 @@ class ToastOverlay(private val activity: Activity) {
             return
         }
 
-        // Animate out upward
+        if (hasCenterCutout) {
+            dismissWithCutoutAnimation(pill)
+        } else {
+            dismissWithSlideAnimation(pill)
+        }
+    }
+
+    fun destroy() {
+        cancelAutoDismiss()
+        handler.removeCallbacksAndMessages(null)
+        val decorView = activity.window?.decorView as? ViewGroup ?: return
+        overlayContainer?.let { decorView.removeView(it) }
+        overlayContainer = null
+        pillView = null
+        iconView = null
+        titleView = null
+        messageView = null
+        contentContainer = null
+    }
+
+    // MARK: - Cutout Animation (Dynamic Island-like)
+
+    private fun showWithCutoutAnimation(pill: LinearLayout) {
+        // Use actual pill width, not hardcoded
+        val expandedWidth = pill.layoutParams.width.toFloat()
+
+        val scaleX = collapsedWidth / expandedWidth
+        val scaleY = collapsedHeight / pill.height.toFloat().coerceAtLeast(dpToPx(70f))
+
+        pill.pivotX = expandedWidth / 2f
+        pill.pivotY = 0f
+        pill.scaleX = scaleX
+        pill.scaleY = scaleY
+        pill.alpha = 1f
+        contentContainer?.alpha = 0f
+
+        // Animate expand
+        pill.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(300)
+            .setInterpolator(DecelerateInterpolator(1.5f))
+            .start()
+
+        contentContainer?.animate()
+            ?.alpha(1f)
+            ?.setDuration(250)
+            ?.setStartDelay(100)
+            ?.start()
+    }
+
+    private fun dismissWithCutoutAnimation(pill: LinearLayout) {
+        val expandedWidth = pill.width.toFloat().coerceAtLeast(1f)
+
+        val scaleX = collapsedWidth / expandedWidth
+        val scaleY = collapsedHeight / pill.height.toFloat().coerceAtLeast(dpToPx(70f))
+
+        contentContainer?.animate()
+            ?.alpha(0f)
+            ?.setDuration(150)
+            ?.start()
+
+        // Scale down and fade out simultaneously — no two-step pop
+        pill.animate()
+            .scaleX(scaleX)
+            .scaleY(scaleY)
+            .alpha(0f)
+            .setDuration(300)
+            .setInterpolator(AccelerateInterpolator(1.2f))
+            .withEndAction {
+                isShowing = false
+                isDismissing = false
+                overlayContainer?.visibility = View.GONE
+                pill.scaleX = 1f
+                pill.scaleY = 1f
+                pill.alpha = 1f
+                contentContainer?.alpha = 1f
+                showStatusBar()
+                onDismiss?.invoke()
+            }
+            .start()
+    }
+
+    // MARK: - Slide Animation (non-cutout fallback)
+
+    private fun showWithSlideAnimation(pill: LinearLayout) {
+        pill.translationY = -dpToPx(200f)
+        pill.alpha = 1f
+
+        val spring = SpringAnimation(pill, DynamicAnimation.TRANSLATION_Y, 0f)
+        spring.spring.apply {
+            dampingRatio = 0.75f
+            stiffness = SpringForce.STIFFNESS_MEDIUM
+        }
+        spring.start()
+    }
+
+    private fun dismissWithSlideAnimation(pill: LinearLayout) {
         val spring = SpringAnimation(pill, DynamicAnimation.TRANSLATION_Y, -dpToPx(200f))
         spring.spring.apply {
             dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
@@ -135,22 +257,13 @@ class ToastOverlay(private val activity: Activity) {
             .start()
     }
 
-    fun destroy() {
-        cancelAutoDismiss()
-        handler.removeCallbacksAndMessages(null)
-        val decorView = activity.window?.decorView as? ViewGroup ?: return
-        overlayContainer?.let { decorView.removeView(it) }
-        overlayContainer = null
-        pillView = null
-        iconView = null
-        titleView = null
-        messageView = null
-    }
+    // MARK: - Overlay Setup
 
     private fun ensureOverlay() {
         if (overlayContainer != null) return
 
         val decorView = activity.window?.decorView as? ViewGroup ?: return
+        val screenWidth = activity.resources.displayMetrics.widthPixels
 
         // Get status bar height
         ViewCompat.getRootWindowInsets(decorView)?.let { insets ->
@@ -163,7 +276,12 @@ class ToastOverlay(private val activity: Activity) {
             }
         }
 
-        // Overlay container — full screen, passes touches outside pill
+        // Detect center display cutout
+        detectCutout(decorView, screenWidth)
+
+        val density = activity.resources.displayMetrics.density
+
+        // Overlay container
         val container = PassThroughFrameLayout(activity)
         container.layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -171,31 +289,77 @@ class ToastOverlay(private val activity: Activity) {
         )
         container.visibility = View.GONE
 
-        // Pill — black rounded rect, matches iOS aesthetic
+        // Pill
         val pill = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-
+            orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(Color.BLACK)
                 cornerRadius = dpToPx(30f)
             }
             elevation = dpToPx(8f)
-
-            val hPad = dpToPx(20f).toInt()
-            val vPad = dpToPx(14f).toInt()
-            setPadding(hPad, vPad, hPad, vPad)
         }
 
-        val screenWidth = activity.resources.displayMetrics.widthPixels
-        val pillMargin = dpToPx(10f).toInt()
-        val pillWidth = screenWidth - pillMargin * 2
-        pill.layoutParams = FrameLayout.LayoutParams(pillWidth, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        val screenCornerRadius = getScreenCornerRadius(decorView)
+
+        // Step 1: Determine pill top position
+        val topMargin: Int
+        if (hasCenterCutout && cutoutRect != null) {
+            // Position pill so the camera sits inside the pill's upper area.
+            // centerY/3 places the pill close enough to wrap the camera on
+            // devices where the bounding rect starts at y=0.
+            // If cutoutRect.top > 0 (camera not at screen edge), use that directly.
+            val fromCenter = cutoutRect!!.centerY() / 3
+            val fromTop = if (cutoutRect!!.top > 0) cutoutRect!!.top else Int.MAX_VALUE
+            topMargin = minOf(fromCenter, fromTop).coerceAtLeast(dpToPx(4f).toInt())
+        } else {
             topMargin = statusBarHeight + dpToPx(10f).toInt()
         }
 
-        // Icon — 35dp to match iOS .system(size: 35)
+        // Step 2: At the pill's top Y, calculate horizontal margin to clear screen corners
+        val pillMargin: Int
+        if (screenCornerRadius > 0 && topMargin < screenCornerRadius) {
+            val r = screenCornerRadius.toDouble()
+            val y = topMargin.toDouble()
+            val horizontalInset = (r - Math.sqrt(r * r - (r - y) * (r - y))).toInt()
+            pillMargin = (horizontalInset + dpToPx(4f).toInt()).coerceAtLeast(dpToPx(10f).toInt())
+        } else {
+            pillMargin = dpToPx(10f).toInt()
+        }
+        val pillWidth = screenWidth - pillMargin * 2
+
+        // Update pill corner radius to be concentric with screen corners
+        if (hasCenterCutout && screenCornerRadius > 0) {
+            val inset = maxOf(pillMargin, topMargin)
+            val concentricRadius = (screenCornerRadius - inset).toFloat().coerceAtLeast(dpToPx(20f))
+            (pill.background as? GradientDrawable)?.cornerRadius = concentricRadius
+        }
+
+        pill.layoutParams = FrameLayout.LayoutParams(pillWidth, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            this.topMargin = topMargin
+        }
+
+        // Content container inside pill — holds icon + text
+        // Separate from pill so we can fade it independently
+        val content = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            val hPad = dpToPx(20f).toInt()
+            val vPad = dpToPx(14f).toInt()
+            // If cutout mode, push content below the camera hole
+            val topPad = if (hasCenterCutout && cutoutRect != null) {
+                val cutoutCenterY = cutoutRect!!.centerY()
+                val cutoutRadius = cutoutRect!!.width() / 2
+                val cameraBottom = cutoutCenterY + cutoutRadius
+                // Content top = camera bottom - pill top + gap
+                (cameraBottom - topMargin + dpToPx(6f).toInt()).coerceAtLeast(vPad)
+            } else {
+                vPad
+            }
+            setPadding(hPad, topPad, hPad, vPad)
+        }
+
+        // Icon
         val iconSize = dpToPx(35f).toInt()
         val icon = ImageView(activity).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(50f).toInt(), iconSize)
@@ -210,14 +374,12 @@ class ToastOverlay(private val activity: Activity) {
             }
         }
 
-        // Title — matches iOS .callout .semibold
         val titleTv = TextView(activity).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
 
-        // Message — matches iOS .caption, white @ 60%
         val messageTv = TextView(activity).apply {
             setTextColor(Color.argb(153, 255, 255, 255))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
@@ -225,18 +387,44 @@ class ToastOverlay(private val activity: Activity) {
 
         textContainer.addView(titleTv)
         textContainer.addView(messageTv)
-        pill.addView(icon)
-        pill.addView(textContainer)
+        content.addView(icon)
+        content.addView(textContainer)
+        pill.addView(content)
         container.addView(pill)
         decorView.addView(container)
 
         overlayContainer = container
         pillView = pill
+        contentContainer = content
         iconView = icon
         titleView = titleTv
         messageView = messageTv
         container.pillView = pill
     }
+
+    private fun detectCutout(decorView: View, screenWidth: Int) {
+        val insets = ViewCompat.getRootWindowInsets(decorView)
+        val cutout = insets?.displayCutout
+
+        if (cutout != null) {
+            val topRect = cutout.boundingRects.firstOrNull { it.top == 0 || it.top < statusBarHeight }
+
+            if (topRect != null && !topRect.isEmpty) {
+                val cutoutCenterX = topRect.centerX()
+                val screenCenterX = screenWidth / 2
+                hasCenterCutout = Math.abs(cutoutCenterX - screenCenterX) < screenWidth * 0.2
+                if (hasCenterCutout) {
+                    cutoutRect = topRect
+                }
+            } else {
+                hasCenterCutout = false
+            }
+        } else {
+            hasCenterCutout = false
+        }
+    }
+
+    // MARK: - Gestures
 
     private fun setupGestures(pill: LinearLayout, enableSwipeDismiss: Boolean) {
         pill.setOnTouchListener { _, event ->
@@ -261,14 +449,11 @@ class ToastOverlay(private val activity: Activity) {
                     val dx = event.rawX - touchStartX
 
                     if (enableSwipeDismiss && dy < -dpToPx(50f)) {
-                        // Swipe up — dismiss
                         dismiss()
                     } else if (Math.abs(dy) < dpToPx(10f) && Math.abs(dx) < dpToPx(10f)) {
-                        // Tap
                         onPress?.invoke()
                         snapBack(pill)
                     } else {
-                        // Partial drag, snap back
                         snapBack(pill)
                     }
                     true
@@ -290,6 +475,8 @@ class ToastOverlay(private val activity: Activity) {
         }
         spring.start()
     }
+
+    // MARK: - Icon
 
     private fun updateIcon(symbolName: String) {
         val icon = iconView ?: return
@@ -314,6 +501,35 @@ class ToastOverlay(private val activity: Activity) {
         }
     }
 
+    // MARK: - Status Bar
+
+    @Suppress("DEPRECATION")
+    private fun hideStatusBar() {
+        activity.window?.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun showStatusBar() {
+        activity.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+    }
+
+    private fun getScreenCornerRadius(decorView: View): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val insets = decorView.rootWindowInsets
+            val topLeft = insets?.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT)
+            val topRight = insets?.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_RIGHT)
+            val radius = maxOf(topLeft?.radius ?: 0, topRight?.radius ?: 0)
+            if (radius > 0) return radius
+        }
+        // Fallback: assume no rounded corners
+        return 0
+    }
+
+    // MARK: - Helpers
+
     private fun cancelAutoDismiss() {
         dismissRunnable?.let { handler.removeCallbacks(it) }
         dismissRunnable = null
@@ -333,7 +549,6 @@ class PassThroughFrameLayout(context: android.content.Context) : FrameLayout(con
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         val pill = pillView ?: return false
 
-        // Account for the pill's current translationY when checking bounds
         val loc = IntArray(2)
         pill.getLocationOnScreen(loc)
         val pillRect = Rect(
@@ -346,7 +561,7 @@ class PassThroughFrameLayout(context: android.content.Context) : FrameLayout(con
         return if (pillRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
             super.dispatchTouchEvent(ev)
         } else {
-            false // Pass through to views underneath
+            false
         }
     }
 }
