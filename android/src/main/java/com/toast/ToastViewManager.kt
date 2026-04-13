@@ -1,6 +1,6 @@
 package com.toast
 
-import android.graphics.Color
+import com.facebook.react.common.MapBuilder
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
@@ -11,31 +11,75 @@ import com.facebook.react.viewmanagers.ToastViewManagerDelegate
 
 @ReactModule(name = ToastViewManager.NAME)
 class ToastViewManager : SimpleViewManager<ToastView>(),
-  ToastViewManagerInterface<ToastView> {
-  private val mDelegate: ViewManagerDelegate<ToastView>
+    ToastViewManagerInterface<ToastView> {
 
-  init {
-    mDelegate = ToastViewManagerDelegate(this)
-  }
+    private val mDelegate: ViewManagerDelegate<ToastView> = ToastViewManagerDelegate(this)
 
-  override fun getDelegate(): ViewManagerDelegate<ToastView>? {
-    return mDelegate
-  }
+    override fun getDelegate(): ViewManagerDelegate<ToastView> = mDelegate
 
-  override fun getName(): String {
-    return NAME
-  }
+    override fun getName(): String = NAME
 
-  public override fun createViewInstance(context: ThemedReactContext): ToastView {
-    return ToastView(context)
-  }
+    override fun createViewInstance(context: ThemedReactContext): ToastView {
+        return ToastView(context)
+    }
 
-  @ReactProp(name = "color")
-  override fun setColor(view: ToastView?, color: Int?) {
-    view?.setBackgroundColor(color ?: Color.TRANSPARENT)
-  }
+    // Props
 
-  companion object {
-    const val NAME = "ToastView"
-  }
+    @ReactProp(name = "visible")
+    override fun setVisible(view: ToastView, value: Boolean) {
+        view.setVisible(value)
+    }
+
+    @ReactProp(name = "icon")
+    override fun setIcon(view: ToastView, value: String?) {
+        view.icon = value ?: ""
+    }
+
+    @ReactProp(name = "title")
+    override fun setTitle(view: ToastView, value: String?) {
+        view.toastTitle = value ?: ""
+    }
+
+    @ReactProp(name = "message")
+    override fun setMessage(view: ToastView, value: String?) {
+        view.toastMessage = value ?: ""
+    }
+
+    @ReactProp(name = "duration")
+    override fun setDuration(view: ToastView, value: Int) {
+        view.duration = value
+    }
+
+    @ReactProp(name = "autoDismiss")
+    override fun setAutoDismiss(view: ToastView, value: Boolean) {
+        view.autoDismiss = value
+    }
+
+    @ReactProp(name = "enableSwipeDismiss")
+    override fun setEnableSwipeDismiss(view: ToastView, value: Boolean) {
+        view.enableSwipeDismiss = value
+    }
+
+    // Events
+
+    override fun getExportedCustomBubblingEventTypeConstants(): Map<String, Any> {
+        return MapBuilder.builder<String, Any>()
+            .put("onToastDismiss", MapBuilder.of(
+                "phasedRegistrationNames",
+                MapBuilder.of("bubbled", "onToastDismiss")
+            ))
+            .put("onToastShow", MapBuilder.of(
+                "phasedRegistrationNames",
+                MapBuilder.of("bubbled", "onToastShow")
+            ))
+            .put("onToastPress", MapBuilder.of(
+                "phasedRegistrationNames",
+                MapBuilder.of("bubbled", "onToastPress")
+            ))
+            .build()
+    }
+
+    companion object {
+        const val NAME = "ToastView"
+    }
 }
