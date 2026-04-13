@@ -60,6 +60,11 @@ class ToastViewManager : SimpleViewManager<ToastView>(),
         view.enableSwipeDismiss = value
     }
 
+    @ReactProp(name = "useDynamicIsland")
+    override fun setUseDynamicIsland(view: ToastView, value: Boolean) {
+        view.useDynamicIsland = value
+    }
+
     // Events
 
     override fun getExportedCustomBubblingEventTypeConstants(): Map<String, Any> {

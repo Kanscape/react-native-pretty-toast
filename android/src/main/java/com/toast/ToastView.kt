@@ -22,6 +22,7 @@ class ToastView(context: Context) : View(context) {
     var duration: Int = 3000
     var autoDismiss: Boolean = true
     var enableSwipeDismiss: Boolean = true
+    var useDynamicIsland: Boolean = true
 
     init {
         visibility = GONE
@@ -61,7 +62,7 @@ class ToastView(context: Context) : View(context) {
             }
         }
 
-        overlay?.show(icon, toastTitle, toastMessage, duration, autoDismiss, enableSwipeDismiss)
+        overlay?.show(icon, toastTitle, toastMessage, duration, autoDismiss, enableSwipeDismiss, useDynamicIsland)
     }
 
     private fun dismissToast() {

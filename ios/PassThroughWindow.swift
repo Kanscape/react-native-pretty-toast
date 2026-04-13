@@ -4,6 +4,7 @@ import Combine
 class PassThroughWindow: UIWindow, ObservableObject {
     @Published var toast: Toast? = nil
     @Published var isPresented: Bool = false
+    @Published var useDynamicIsland: Bool = true
     @Published var wasTapped: Bool = false
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {

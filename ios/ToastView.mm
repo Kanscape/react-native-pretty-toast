@@ -22,6 +22,7 @@ using namespace facebook::react;
     int _duration;
     BOOL _autoDismiss;
     BOOL _enableSwipeDismiss;
+    BOOL _useDynamicIsland;
     NSString *_icon;
     NSString *_title;
     NSString *_message;
@@ -44,6 +45,7 @@ using namespace facebook::react;
         _duration = 3000;
         _autoDismiss = YES;
         _enableSwipeDismiss = YES;
+        _useDynamicIsland = YES;
         _icon = @"";
         _title = @"";
         _message = @"";
@@ -81,6 +83,7 @@ using namespace facebook::react;
     _duration = newViewProps.duration;
     _autoDismiss = newViewProps.autoDismiss;
     _enableSwipeDismiss = newViewProps.enableSwipeDismiss;
+    _useDynamicIsland = newViewProps.useDynamicIsland;
     _icon = [NSString stringWithUTF8String:newViewProps.icon.c_str()];
     _title = [NSString stringWithUTF8String:newViewProps.title.c_str()];
     _message = [NSString stringWithUTF8String:newViewProps.message.c_str()];
@@ -106,7 +109,8 @@ using namespace facebook::react;
                    message:_message
                   duration:_duration
                autoDismiss:_autoDismiss
-        enableSwipeDismiss:_enableSwipeDismiss];
+        enableSwipeDismiss:_enableSwipeDismiss
+          useDynamicIsland:_useDynamicIsland];
 }
 
 - (void)dismissToast

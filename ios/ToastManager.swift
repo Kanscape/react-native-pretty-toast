@@ -21,7 +21,8 @@ import Combine
         message: String,
         duration: Int,
         autoDismiss: Bool,
-        enableSwipeDismiss: Bool
+        enableSwipeDismiss: Bool,
+        useDynamicIsland: Bool
     ) {
         let isFirstShow = overlayWindow == nil
         ensureOverlayWindow()
@@ -39,6 +40,7 @@ import Combine
         )
 
         overlayWindow.toast = toast
+        overlayWindow.useDynamicIsland = useDynamicIsland
         overlayWindow.wasTapped = false
         isDismissing = false
 

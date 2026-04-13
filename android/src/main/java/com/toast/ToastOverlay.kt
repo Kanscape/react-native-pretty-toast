@@ -54,6 +54,7 @@ class ToastOverlay(private val activity: Activity) {
     private var dismissRunnable: Runnable? = null
     private var isShowing = false
     private var isDismissing = false
+    private var useDynamicIslandProp = true
 
     var onDismiss: (() -> Unit)? = null
     var onPress: (() -> Unit)? = null
@@ -68,8 +69,16 @@ class ToastOverlay(private val activity: Activity) {
         message: String,
         duration: Int,
         autoDismiss: Boolean,
-        enableSwipeDismiss: Boolean
+        enableSwipeDismiss: Boolean,
+        useDynamicIsland: Boolean = true
     ) {
+        // If the dynamic island setting changed, recreate the overlay
+        if (useDynamicIsland != this.useDynamicIslandProp) {
+            this.useDynamicIslandProp = useDynamicIsland
+            destroy()
+        }
+        this.useDynamicIslandProp = useDynamicIsland
+
         if (isDismissing) {
             handler.postDelayed({
                 show(icon, title, message, duration, autoDismiss, enableSwipeDismiss)
@@ -278,6 +287,10 @@ class ToastOverlay(private val activity: Activity) {
 
         // Detect center display cutout
         detectCutout(decorView, screenWidth)
+        // Allow JS to disable cutout/dynamic island behavior
+        if (!useDynamicIslandProp) {
+            hasCenterCutout = false
+        }
 
         val density = activity.resources.displayMetrics.density
 

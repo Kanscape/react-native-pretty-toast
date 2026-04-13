@@ -1,4 +1,10 @@
-import React, { createContext, useCallback, useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { StyleSheet } from 'react-native';
 import ToastViewNativeComponent from './ToastViewNativeComponent';
 import type { ToastConfig, ToastRef } from './types';
@@ -14,9 +20,13 @@ type ToastEntry = ToastConfig & { id: string };
 
 interface ToastProviderProps {
   children: React.ReactNode;
+  useDynamicIsland?: boolean;
 }
 
-export function ToastProvider({ children }: ToastProviderProps) {
+export function ToastProvider({
+  children,
+  useDynamicIsland = true,
+}: ToastProviderProps) {
   const [current, setCurrent] = useState<ToastEntry | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -68,18 +78,15 @@ export function ToastProvider({ children }: ToastProviderProps) {
     [presentToast]
   );
 
-  const dismiss = useCallback(
-    (id?: string) => {
-      if (id && currentRef.current?.id !== id) {
-        queueRef.current = queueRef.current.filter((t) => t.id !== id);
-        return;
-      }
-      setVisible(false);
-      // The native onDismiss callback will fire after the animation,
-      // which triggers showNext via handleDismiss.
-    },
-    []
-  );
+  const dismiss = useCallback((id?: string) => {
+    if (id && currentRef.current?.id !== id) {
+      queueRef.current = queueRef.current.filter((t) => t.id !== id);
+      return;
+    }
+    setVisible(false);
+    // The native onDismiss callback will fire after the animation,
+    // which triggers showNext via handleDismiss.
+  }, []);
 
   const dismissAll = useCallback(() => {
     queueRef.current = [];
@@ -116,6 +123,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
         duration={current?.duration ?? 3000}
         autoDismiss={current?.autoDismiss ?? true}
         enableSwipeDismiss={current?.enableSwipeDismiss ?? true}
+        useDynamicIsland={useDynamicIsland}
         onToastDismiss={handleDismiss}
         onToastPress={handlePress}
         style={styles.hidden}

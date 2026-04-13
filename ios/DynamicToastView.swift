@@ -12,7 +12,7 @@ struct DynamicToastView: View {
             let safeArea = $0.safeAreaInsets
             let size = $0.size
 
-            let haveDynamicIsland: Bool = safeArea.top >= 59
+            let haveDynamicIsland: Bool = safeArea.top >= 59 && window.useDynamicIsland
             let dynamicIslandWidth: CGFloat = 120
             let dynamicIslandHeight: CGFloat = 36
             let topOffset: CGFloat = 11 + max((safeArea.top - 59), 0)
@@ -39,9 +39,6 @@ struct DynamicToastView: View {
                         width: isExpanded ? expandedWidth : dynamicIslandWidth,
                         height: isExpanded ? expandedHeight : dynamicIslandHeight
                     )
-                    .offset(
-                        y: haveDynamicIsland ? topOffset : (isExpanded ? safeArea.top + 10 : -80)
-                    )
                     .opacity(haveDynamicIsland ? 1 : (isExpanded ? 1 : 0))
                     .modifier(CapsuleOpacityModifier(
                         haveDynamicIsland: haveDynamicIsland,
@@ -59,8 +56,13 @@ struct DynamicToastView: View {
                             }
                         }
                     )
+                    // Use offset AFTER gestures — for DI it's fine since the offset
+                    // is small and the pill is near the top. For non-DI, we use padding
+                    // on the ZStack instead so the layout position matches.
+                    .offset(y: haveDynamicIsland ? topOffset : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.top, haveDynamicIsland ? 0 : (isExpanded ? safeArea.top + 10 : 0))
             .ignoresSafeArea()
             .animation(.bouncy(duration: 0.3, extraBounce: 0), value: isExpanded)
         }

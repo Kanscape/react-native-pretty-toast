@@ -13,6 +13,7 @@ export interface NativeProps extends ViewProps {
   duration?: Int32;
   autoDismiss?: boolean;
   enableSwipeDismiss?: boolean;
+  useDynamicIsland?: boolean;
   onToastDismiss?: BubblingEventHandler<null>;
   onToastShow?: BubblingEventHandler<null>;
   onToastPress?: BubblingEventHandler<null>;
