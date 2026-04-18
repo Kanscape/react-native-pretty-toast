@@ -50,8 +50,8 @@ struct DynamicToastView: View {
                         window.wasTapped = true
                     }
                     .gesture(
-                        DragGesture().onEnded { value in
-                            if value.translation.height < 0 {
+                        DragGesture(minimumDistance: 2).onEnded { value in
+                            if value.translation.height < -8 || value.predictedEndTranslation.height < -40 {
                                 window.isPresented = false
                             }
                         }
