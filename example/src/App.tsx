@@ -11,7 +11,7 @@ import {
   Platform,
   useColorScheme,
 } from 'react-native';
-import { ToastProvider, useToast } from 'react-native-dynamic-toast';
+import { ToastProvider, useToast } from 'react-native-pretty-toast';
 
 function makeColors(isDark: boolean) {
   if (isDark) {
@@ -418,7 +418,7 @@ function HomeScreen() {
         <SectionBlock key={section.title} section={section} styles={styles} />
       ))}
 
-      <Text style={styles.colophon}>react-native-dynamic-toast</Text>
+      <Text style={styles.colophon}>react-native-pretty-toast</Text>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </ScrollView>
   );

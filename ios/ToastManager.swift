@@ -106,7 +106,7 @@ import Combine
             window.tag = 1009
 
             let hosting = CustomHostingView(
-                rootView: DynamicToastView(window: window)
+                rootView: PrettyToastView(window: window)
             )
             hosting.view.backgroundColor = .clear
             window.rootViewController = hosting

@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="./assets/logo.png" alt="react-native-dynamic-toast" width="160" />
+  <img src="./assets/logo.png" alt="react-native-pretty-toast" width="160" />
 </p>
 
-# react-native-dynamic-toast
+# react-native-pretty-toast
 
 Dynamic Island toast notifications for React Native. On devices with a Dynamic Island, the toast animates from the island with a smooth scale effect. On older devices, it slides in from the top.
 
 ## Installation
 
 ```sh
-npm install react-native-dynamic-toast
+npm install react-native-pretty-toast
 ```
 
 ### iOS Setup
@@ -49,7 +49,7 @@ This is required for the toast to properly hide the status bar when displayed. W
 Wrap your app with `ToastProvider`, then use the `useToast` hook anywhere:
 
 ```tsx
-import { ToastProvider, useToast } from 'react-native-dynamic-toast';
+import { ToastProvider, useToast } from 'react-native-pretty-toast';
 
 // Root of your app
 export default function App() {

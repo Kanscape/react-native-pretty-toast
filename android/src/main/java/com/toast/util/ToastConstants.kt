@@ -23,7 +23,7 @@ object ToastConstants {
 
     /**
      * Duration of the main scale/translation/corner morph. Matches iOS's
-     * `.bouncy(duration: 0.3)` in DynamicToastView.swift.
+     * `.bouncy(duration: 0.3)` in PrettyToastView.swift.
      */
     const val MORPH_DURATION_MS: Long = 300L
 

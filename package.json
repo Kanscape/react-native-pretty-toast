@@ -1,5 +1,5 @@
 {
-  "name": "react-native-dynamic-toast",
+  "name": "react-native-pretty-toast",
   "version": "0.1.0",
   "description": "React Native Toast but more capable",
   "main": "./lib/module/index.js",
@@ -32,7 +32,7 @@
     "!**/.*"
   ],
   "scripts": {
-    "example": "yarn workspace react-native-dynamic-toast-example",
+    "example": "yarn workspace react-native-pretty-toast-example",
     "clean": "del-cli lib",
     "prepare": "bob build",
     "typecheck": "tsc",
@@ -47,14 +47,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/blazejkustra/react-native-dynamic-toast.git"
+    "url": "git+https://github.com/blazejkustra/react-native-pretty-toast.git"
   },
   "author": "Blazej Kustra <kustrablazej@gmail.com> (https://github.com/blazejkustra)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/blazejkustra/react-native-dynamic-toast/issues"
+    "url": "https://github.com/blazejkustra/react-native-pretty-toast/issues"
   },
-  "homepage": "https://github.com/blazejkustra/react-native-dynamic-toast#readme",
+  "homepage": "https://github.com/blazejkustra/react-native-pretty-toast#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

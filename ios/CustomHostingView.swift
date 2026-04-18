@@ -1,6 +1,6 @@
 import SwiftUI
 
-class CustomHostingView: UIHostingController<DynamicToastView> {
+class CustomHostingView: UIHostingController<PrettyToastView> {
     var isStatusBarHidden: Bool = false {
         didSet {
             setNeedsStatusBarAppearanceUpdate()

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The SwiftUI toast view — ported from Kavsoft's DynamicIslandToast.
 /// Uses ObservableObject/Published for broad iOS compatibility.
-struct DynamicToastView: View {
+struct PrettyToastView: View {
     @ObservedObject var window: PassThroughWindow
     /// Measured height of the toast content (icon + text block)
     @State private var measuredContentHeight: CGFloat = 0

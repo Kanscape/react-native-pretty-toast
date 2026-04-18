@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Toast Example",
-    "slug": "react-native-dynamic-toast-example",
+    "slug": "react-native-pretty-toast-example",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
