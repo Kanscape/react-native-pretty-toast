@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Text,
@@ -9,31 +9,61 @@ import {
   View,
   Image,
   Platform,
+  useColorScheme,
 } from 'react-native';
 import { ToastProvider, useToast } from 'react-native-dynamic-toast';
 
-const COLORS = {
-  systemGroupedBackground: '#F2F2F7',
-  secondaryGroupedBackground: '#FFFFFF',
-  separator: 'rgba(60, 60, 67, 0.29)',
-  label: '#000000',
-  secondaryLabel: 'rgba(60, 60, 67, 0.6)',
-  tertiaryLabel: 'rgba(60, 60, 67, 0.3)',
-  chevron: 'rgba(60, 60, 67, 0.3)',
-  cellHighlight: '#D1D1D6',
-  badgeBackground: 'rgba(60, 60, 67, 0.08)',
-  systemGreen: '#34C759',
-  systemRed: '#FF3B30',
-  systemBlue: '#007AFF',
-  systemOrange: '#FF9500',
-  systemPurple: '#AF52DE',
-  systemPink: '#FF2D55',
-  systemIndigo: '#5856D6',
-  systemTeal: '#5AC8FA',
-  systemMint: '#00C7BE',
-  systemCyan: '#32ADE6',
-  systemGray: '#8E8E93',
-};
+function makeColors(isDark: boolean) {
+  if (isDark) {
+    return {
+      systemGroupedBackground: '#000000',
+      secondaryGroupedBackground: '#1C1C1E',
+      separator: 'rgba(84, 84, 88, 0.65)',
+      label: '#FFFFFF',
+      secondaryLabel: 'rgba(235, 235, 245, 0.6)',
+      tertiaryLabel: 'rgba(235, 235, 245, 0.3)',
+      chevron: 'rgba(235, 235, 245, 0.3)',
+      cellHighlight: '#2C2C2E',
+      badgeBackground: 'rgba(120, 120, 128, 0.24)',
+      systemGreen: '#30D158',
+      systemRed: '#FF453A',
+      systemBlue: '#0A84FF',
+      systemOrange: '#FF9F0A',
+      systemPurple: '#BF5AF2',
+      systemPink: '#FF375F',
+      systemIndigo: '#5E5CE6',
+      systemTeal: '#64D2FF',
+      systemMint: '#63E6E2',
+      systemCyan: '#64D2FF',
+      systemGray: '#8E8E93',
+    };
+  }
+  return {
+    systemGroupedBackground: '#F2F2F7',
+    secondaryGroupedBackground: '#FFFFFF',
+    separator: 'rgba(60, 60, 67, 0.29)',
+    label: '#000000',
+    secondaryLabel: 'rgba(60, 60, 67, 0.6)',
+    tertiaryLabel: 'rgba(60, 60, 67, 0.3)',
+    chevron: 'rgba(60, 60, 67, 0.3)',
+    cellHighlight: '#D1D1D6',
+    badgeBackground: 'rgba(60, 60, 67, 0.08)',
+    systemGreen: '#34C759',
+    systemRed: '#FF3B30',
+    systemBlue: '#007AFF',
+    systemOrange: '#FF9500',
+    systemPurple: '#AF52DE',
+    systemPink: '#FF2D55',
+    systemIndigo: '#5856D6',
+    systemTeal: '#5AC8FA',
+    systemMint: '#00C7BE',
+    systemCyan: '#32ADE6',
+    systemGray: '#8E8E93',
+  };
+}
+
+type ThemeColors = ReturnType<typeof makeColors>;
+type AppStyles = ReturnType<typeof makeStyles>;
 
 type Row = {
   id: string;
@@ -51,7 +81,15 @@ type Section = {
   rows: Row[];
 };
 
-function Cell({ row, showSeparator }: { row: Row; showSeparator: boolean }) {
+function Cell({
+  row,
+  showSeparator,
+  styles,
+}: {
+  row: Row;
+  showSeparator: boolean;
+  styles: AppStyles;
+}) {
   return (
     <Pressable
       onPress={row.onPress}
@@ -88,7 +126,13 @@ function Cell({ row, showSeparator }: { row: Row; showSeparator: boolean }) {
   );
 }
 
-function SectionBlock({ section }: { section: Section }) {
+function SectionBlock({
+  section,
+  styles,
+}: {
+  section: Section;
+  styles: AppStyles;
+}) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionHeader}>{section.title}</Text>
@@ -98,6 +142,7 @@ function SectionBlock({ section }: { section: Section }) {
             key={row.id}
             row={row}
             showSeparator={idx < section.rows.length - 1}
+            styles={styles}
           />
         ))}
       </View>
@@ -110,6 +155,10 @@ function SectionBlock({ section }: { section: Section }) {
 
 function HomeScreen() {
   const toast = useToast();
+  const isDark = useColorScheme() === 'dark';
+  console.log(`%%% isDark`, useColorScheme());
+  const colors = useMemo(() => makeColors(isDark), [isDark]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [count, setCount] = useState(0);
 
   const sections: Section[] = [
@@ -122,7 +171,7 @@ function HomeScreen() {
           title: 'Success',
           subtitle: 'Transaction completed',
           glyph: '✓',
-          tint: COLORS.systemGreen,
+          tint: colors.systemGreen,
           onPress: () => {
             setCount((c) => c + 1);
             toast.show({
@@ -138,7 +187,7 @@ function HomeScreen() {
           title: 'Error',
           subtitle: 'Something went wrong',
           glyph: '✕',
-          tint: COLORS.systemRed,
+          tint: colors.systemRed,
           onPress: () => {
             toast.show({
               icon: 'xmark.seal.fill',
@@ -154,7 +203,7 @@ function HomeScreen() {
           subtitle: 'Neutral information',
           glyph: 'i',
           glyphStyle: 'serifItalic',
-          tint: COLORS.systemBlue,
+          tint: colors.systemBlue,
           onPress: () => {
             toast.show({
               icon: 'info.circle.fill',
@@ -169,7 +218,7 @@ function HomeScreen() {
           title: 'Warning',
           subtitle: 'Attention required',
           glyph: '!',
-          tint: COLORS.systemOrange,
+          tint: colors.systemOrange,
           onPress: () => {
             toast.show({
               icon: 'exclamationmark.triangle.fill',
@@ -190,7 +239,7 @@ function HomeScreen() {
           title: 'Tappable Toast',
           subtitle: 'onPress handler attached',
           glyph: '◉',
-          tint: COLORS.systemCyan,
+          tint: colors.systemCyan,
           onPress: () => {
             toast.show({
               icon: 'hand.tap.fill',
@@ -208,7 +257,7 @@ function HomeScreen() {
           title: 'Persistent',
           subtitle: 'Swipe up to dismiss',
           glyph: '↑',
-          tint: COLORS.systemIndigo,
+          tint: colors.systemIndigo,
           onPress: () => {
             toast.show({
               icon: 'arrow.up.circle.fill',
@@ -230,7 +279,7 @@ function HomeScreen() {
           title: 'Long Title + Long Message',
           subtitle: 'Both fields overflow',
           glyph: '¶',
-          tint: COLORS.systemPurple,
+          tint: colors.systemPurple,
           onPress: () => {
             toast.show({
               icon: 'envelope.fill',
@@ -247,7 +296,7 @@ function HomeScreen() {
           title: 'Long Title + Short Message',
           subtitle: 'Title wraps, body compact',
           glyph: '↓',
-          tint: COLORS.systemTeal,
+          tint: colors.systemTeal,
           onPress: () => {
             toast.show({
               icon: 'arrow.down.circle.fill',
@@ -263,7 +312,7 @@ function HomeScreen() {
           title: 'Short Title + Long Message',
           subtitle: 'Compact header, body wraps',
           glyph: '♥',
-          tint: COLORS.systemPink,
+          tint: colors.systemPink,
           onPress: () => {
             toast.show({
               icon: 'heart.fill',
@@ -279,7 +328,7 @@ function HomeScreen() {
           title: 'Title Only',
           subtitle: 'No message body',
           glyph: 'A',
-          tint: COLORS.systemMint,
+          tint: colors.systemMint,
           onPress: () => {
             toast.show({
               icon: 'wifi',
@@ -300,7 +349,7 @@ function HomeScreen() {
           title: 'Fire 3 Rapidly',
           subtitle: 'Queued display',
           glyph: '≡',
-          tint: COLORS.systemOrange,
+          tint: colors.systemOrange,
           onPress: () => {
             toast.show({
               icon: 'checkmark.seal.fill',
@@ -327,7 +376,7 @@ function HomeScreen() {
           title: 'Dismiss All',
           subtitle: 'Clear active and queued',
           glyph: '×',
-          tint: COLORS.systemGray,
+          tint: colors.systemGray,
           onPress: () => toast.dismissAll(),
         },
       ],
@@ -366,195 +415,195 @@ function HomeScreen() {
       </View>
 
       {sections.map((section) => (
-        <SectionBlock key={section.title} section={section} />
+        <SectionBlock key={section.title} section={section} styles={styles} />
       ))}
 
       <Text style={styles.colophon}>react-native-dynamic-toast</Text>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
     </ScrollView>
   );
 }
 
 export default function App() {
   return (
-    <>
-      <ToastProvider useDynamicIsland={true}>
-        <HomeScreen />
-      </ToastProvider>
-      <StatusBar style="dark" />
-    </>
+    <ToastProvider useDynamicIsland={true}>
+      <HomeScreen />
+    </ToastProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-    backgroundColor: COLORS.systemGroupedBackground,
-  },
-  container: {
-    paddingBottom: 56,
-  },
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    scroll: {
+      flex: 1,
+      backgroundColor: c.systemGroupedBackground,
+    },
+    container: {
+      paddingBottom: 56,
+    },
 
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 72,
-    paddingBottom: 28,
-  },
-  logoWrap: {
-    width: 100,
-    height: 100,
-    borderRadius: 26,
-    overflow: 'hidden',
-    marginBottom: 18,
-    alignSelf: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
-  },
-  eyebrow: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1.6,
-    color: COLORS.secondaryLabel,
-    marginBottom: 10,
-  },
-  largeTitle: {
-    fontSize: 23,
-    fontWeight: '700',
-    letterSpacing: 0.37,
-    color: COLORS.label,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 20,
-    color: COLORS.secondaryLabel,
-    textAlign: 'center',
-  },
-  badgeRow: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 14,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: COLORS.badgeBackground,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.secondaryLabel,
-    letterSpacing: -0.08,
-  },
+    header: {
+      paddingHorizontal: 20,
+      paddingTop: 72,
+      paddingBottom: 28,
+    },
+    logoWrap: {
+      width: 100,
+      height: 100,
+      borderRadius: 26,
+      overflow: 'hidden',
+      marginBottom: 18,
+      alignSelf: 'center',
+      backgroundColor: '#FFFFFF',
+    },
+    logo: {
+      width: '100%',
+      height: '100%',
+    },
+    eyebrow: {
+      fontSize: 12,
+      fontWeight: '600',
+      letterSpacing: 1.6,
+      color: c.secondaryLabel,
+      marginBottom: 10,
+    },
+    largeTitle: {
+      fontSize: 23,
+      fontWeight: '700',
+      letterSpacing: 0.37,
+      color: c.label,
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: 15,
+      lineHeight: 20,
+      color: c.secondaryLabel,
+      textAlign: 'center',
+    },
+    badgeRow: {
+      alignSelf: 'center',
+      flexDirection: 'row',
+      gap: 6,
+      marginTop: 14,
+    },
+    badge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+      backgroundColor: c.badgeBackground,
+    },
+    badgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: c.secondaryLabel,
+      letterSpacing: -0.08,
+    },
 
-  section: {
-    marginBottom: 28,
-  },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '400',
-    textTransform: 'uppercase',
-    letterSpacing: -0.08,
-    color: COLORS.secondaryLabel,
-    paddingHorizontal: 32,
-    marginBottom: 8,
-  },
-  sectionBody: {
-    marginHorizontal: 20,
-    backgroundColor: COLORS.secondaryGroupedBackground,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  sectionFooter: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: COLORS.secondaryLabel,
-    paddingHorizontal: 32,
-    paddingTop: 8,
-  },
+    section: {
+      marginBottom: 28,
+    },
+    sectionHeader: {
+      fontSize: 13,
+      fontWeight: '400',
+      textTransform: 'uppercase',
+      letterSpacing: -0.08,
+      color: c.secondaryLabel,
+      paddingHorizontal: 32,
+      marginBottom: 8,
+    },
+    sectionBody: {
+      marginHorizontal: 20,
+      backgroundColor: c.secondaryGroupedBackground,
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+    sectionFooter: {
+      fontSize: 13,
+      lineHeight: 18,
+      color: c.secondaryLabel,
+      paddingHorizontal: 32,
+      paddingTop: 8,
+    },
 
-  cell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 58,
-    paddingLeft: 16,
-  },
-  cellPressed: {
-    backgroundColor: COLORS.cellHighlight,
-  },
-  cellContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingRight: 16,
-  },
-  cellText: {
-    flex: 1,
-  },
-  cellTitle: {
-    fontSize: 17,
-    letterSpacing: -0.4,
-    color: COLORS.label,
-    fontWeight: '400',
-  },
-  cellSubtitle: {
-    fontSize: 13,
-    letterSpacing: -0.08,
-    color: COLORS.secondaryLabel,
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 20,
-    fontWeight: '500',
-    color: COLORS.chevron,
-    marginLeft: 8,
-    lineHeight: 22,
-  },
-  separator: {
-    position: 'absolute',
-    bottom: 0,
-    left: 58,
-    right: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: COLORS.separator,
-  },
+    cell: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 58,
+      paddingLeft: 16,
+    },
+    cellPressed: {
+      backgroundColor: c.cellHighlight,
+    },
+    cellContent: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingRight: 16,
+    },
+    cellText: {
+      flex: 1,
+    },
+    cellTitle: {
+      fontSize: 17,
+      letterSpacing: -0.4,
+      color: c.label,
+      fontWeight: '400',
+    },
+    cellSubtitle: {
+      fontSize: 13,
+      letterSpacing: -0.08,
+      color: c.secondaryLabel,
+      marginTop: 2,
+    },
+    chevron: {
+      fontSize: 20,
+      fontWeight: '500',
+      color: c.chevron,
+      marginLeft: 8,
+      lineHeight: 22,
+    },
+    separator: {
+      position: 'absolute',
+      bottom: 0,
+      left: 58,
+      right: 0,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: c.separator,
+    },
 
-  glyphTile: {
-    width: 30,
-    height: 30,
-    borderRadius: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  glyph: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-    textAlign: 'center',
-    includeFontPadding: false,
-  },
-  glyphSerifItalic: {
-    fontFamily: Platform.select({
-      ios: 'Georgia',
-      default: 'serif',
-    }),
-    fontStyle: 'italic',
-    fontWeight: '400',
-    fontSize: 19,
-  },
+    glyphTile: {
+      width: 30,
+      height: 30,
+      borderRadius: 7,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    glyph: {
+      color: '#FFFFFF',
+      fontSize: 17,
+      fontWeight: '700',
+      textAlign: 'center',
+      includeFontPadding: false,
+    },
+    glyphSerifItalic: {
+      fontFamily: Platform.select({
+        ios: 'Georgia',
+        default: 'serif',
+      }),
+      fontStyle: 'italic',
+      fontWeight: '400',
+      fontSize: 19,
+    },
 
-  colophon: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: COLORS.tertiaryLabel,
-    marginTop: 4,
-    letterSpacing: -0.08,
-  },
-});
+    colophon: {
+      textAlign: 'center',
+      fontSize: 12,
+      color: c.tertiaryLabel,
+      marginTop: 4,
+      letterSpacing: -0.08,
+    },
+  });
+}
