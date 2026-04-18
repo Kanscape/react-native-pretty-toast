@@ -71,33 +71,35 @@ struct DynamicToastView: View {
     @ViewBuilder
     func ToastContent(_ haveDynamicIsland: Bool, expandedWidth: CGFloat) -> some View {
         if let toast = window.toast {
-            HStack(spacing: 10) {
-                Image(systemName: toast.symbol)
-                    .font(toast.symbolFont)
-                    .foregroundStyle(toast.symbolForegroundStyle.0, toast.symbolForegroundStyle.1)
-                    .modifier(WiggleModifier(isExpanded: isExpanded))
-                    .frame(width: 50)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    if haveDynamicIsland && !toast.message.isEmpty {
-                        Spacer(minLength: 0)
-                    }
-
-                    Text(toast.title)
-                        .font(.callout)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-
-                    if !toast.message.isEmpty {
-                        Text(toast.message)
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
-                    }
+            VStack(spacing: 0) {
+                if haveDynamicIsland && !toast.message.isEmpty {
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, haveDynamicIsland && !toast.message.isEmpty ? 12 : 0)
+
+                HStack(spacing: 10) {
+                    Image(systemName: toast.symbol)
+                        .font(toast.symbolFont)
+                        .foregroundStyle(toast.symbolForegroundStyle.0, toast.symbolForegroundStyle.1)
+                        .modifier(WiggleModifier(isExpanded: isExpanded))
+                        .frame(width: 50)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(toast.title)
+                            .font(.callout)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.white)
+
+                        if !toast.message.isEmpty {
+                            Text(toast.message)
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(.horizontal, 20)
+            .padding(.bottom, haveDynamicIsland && !toast.message.isEmpty ? 12 : 0)
             .compositingGroup()
             .blur(radius: isExpanded ? 0 : 5)
             .opacity(isExpanded ? 1 : 0)
