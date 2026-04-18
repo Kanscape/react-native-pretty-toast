@@ -9,8 +9,8 @@
 
 #import "RCTFabricComponentsPlugins.h"
 
-#if __has_include("react_native_toast-Swift.h")
-#import "react_native_toast-Swift.h"
+#if __has_include("react_native_dynamic_toast-Swift.h")
+#import "react_native_dynamic_toast-Swift.h"
 #elif __has_include("Toast-Swift.h")
 #import "Toast-Swift.h"
 #endif
