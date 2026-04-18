@@ -11,6 +11,10 @@ import Combine
     /// Prevents double-firing onDismiss when programmatic dismiss
     /// also triggers the Combine subscription.
     private var isDismissing = false
+    /// Pending status-bar restore. Fires after the collapse animation so the
+    /// bar doesn't reappear mid-animation. Cancelled by a follow-up show() so
+    /// queued toasts don't flash the status bar between them.
+    private var statusBarRestoreWorkItem: DispatchWorkItem?
 
     @objc public var onDismiss: (() -> Void)?
     @objc public var onPress: (() -> Void)?
@@ -47,6 +51,7 @@ import Combine
         let present = { [weak self] in
             guard let self, let overlayWindow = self.overlayWindow else { return }
             overlayWindow.isPresented = true
+            self.cancelStatusBarRestore()
             self.hostingController?.isStatusBarHidden = true
             overlayWindow.makeKey()
 
@@ -75,7 +80,7 @@ import Combine
         isDismissing = true
 
         overlayWindow.isPresented = false
-        hostingController?.isStatusBarHidden = false
+        scheduleStatusBarRestore()
         restoreKeyWindow()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
@@ -126,7 +131,7 @@ import Combine
                 // Dismissed by swipe gesture — not by our dismiss() method
                 self.isDismissing = true
                 self.cancelTimer()
-                self.hostingController?.isStatusBarHidden = false
+                self.scheduleStatusBarRestore()
                 self.restoreKeyWindow()
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -162,6 +167,22 @@ import Combine
     private func cancelTimer() {
         autoDismissTimer?.invalidate()
         autoDismissTimer = nil
+    }
+
+    /// Collapse animation is ~0.35s. Add grace so a queued toast arriving via
+    /// the JS round-trip can cancel the restore and keep the status bar hidden.
+    private func scheduleStatusBarRestore() {
+        statusBarRestoreWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.hostingController?.isStatusBarHidden = false
+        }
+        statusBarRestoreWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    private func cancelStatusBarRestore() {
+        statusBarRestoreWorkItem?.cancel()
+        statusBarRestoreWorkItem = nil
     }
 
     private func iconColors(for symbol: String) -> (Color, Color) {

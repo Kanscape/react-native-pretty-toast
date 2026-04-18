@@ -35,6 +35,10 @@ class ToastOverlay(private val activity: Activity) {
 
     private val handler = Handler(Looper.getMainLooper())
     private var dismissRunnable: Runnable? = null
+    // Pending status-bar restore. Scheduled after the collapse animation so
+    // the bar doesn't flicker between queued toasts. Cancelled by the next
+    // show() if one arrives before it fires.
+    private var statusBarRestoreRunnable: Runnable? = null
     private var isShowing = false
     private var isDismissing = false
     private var useDynamicIslandProp = true
@@ -113,7 +117,7 @@ class ToastOverlay(private val activity: Activity) {
             isDismissing = false
             views?.container?.visibility = View.GONE
             if (isCutoutMorph) {
-                StatusBarController.show(activity)
+                scheduleStatusBarRestore()
                 // Match iOS's 50ms buffer between morph end and onDismiss callback.
                 handler.postDelayed({ onDismiss?.invoke() }, DISMISS_CALLBACK_BUFFER_MS)
             } else {
@@ -124,6 +128,7 @@ class ToastOverlay(private val activity: Activity) {
 
     fun destroy() {
         cancelAutoDismiss()
+        cancelStatusBarRestore()
         handler.removeCallbacksAndMessages(null)
         cutoutAnimator?.cancelPendingCallbacks()
 
@@ -157,7 +162,10 @@ class ToastOverlay(private val activity: Activity) {
                 info = info,
                 expandedCornerRadius = built.expandedCornerRadius,
                 density = density,
-                onBeforeShow = { StatusBarController.hide(activity) },
+                onBeforeShow = {
+                    cancelStatusBarRestore()
+                    StatusBarController.hide(activity)
+                },
             ).also { cutoutAnimator = it }
         } else {
             SlideAnimator(built.pill, density)
@@ -204,5 +212,24 @@ class ToastOverlay(private val activity: Activity) {
     private fun cancelAutoDismiss() {
         dismissRunnable?.let { handler.removeCallbacks(it) }
         dismissRunnable = null
+    }
+
+    // The animator completion already fires after the collapse animation ends;
+    // the extra delay here is a grace window so a queued toast's show() can
+    // cancel the restore before the status bar visibly flashes.
+    private fun scheduleStatusBarRestore() {
+        cancelStatusBarRestore()
+        val runnable = Runnable { StatusBarController.show(activity) }
+        statusBarRestoreRunnable = runnable
+        handler.postDelayed(runnable, STATUS_BAR_RESTORE_GRACE_MS)
+    }
+
+    private fun cancelStatusBarRestore() {
+        statusBarRestoreRunnable?.let { handler.removeCallbacks(it) }
+        statusBarRestoreRunnable = null
+    }
+
+    companion object {
+        private const val STATUS_BAR_RESTORE_GRACE_MS = 250L
     }
 }
