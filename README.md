@@ -4,7 +4,17 @@
 
 # react-native-pretty-toast
 
-Dynamic Island toast notifications for React Native. On devices with a Dynamic Island, the toast animates from the island with a smooth scale effect. On older devices, it slides in from the top.
+A toast library that actually uses the hardware cutout. The pill morphs out of the Dynamic Island on iPhone and out of the camera cutout on Android, expands to fit your content, and collapses back in — with sensible slide-in fallbacks on devices without a cutout.
+
+- **Cutout-anchored toast on both platforms** — Dynamic Island on iPhones and `DisplayCutout` hole-punch on Android, detected automatically from system insets
+- **Backdrop-aware outline** — samples the content underneath and flips the stroke between accent and neutral so the pill stays legible on any background
+- **One API, three platforms** — iOS, Android, and Web share the same `toast.show()` call
+- **Sonner-style ergonomics** — `toast.promise()`, `toast.update()`, and `success` / `error` / `info` / `warning` / `loading` shorthands
+- **Works outside React** — call `toast.show()` from redux middleware, fetch interceptors, or anywhere else; no `useContext` required
+- **Interactive out of the box** — swipe-up to dismiss, tappable pill, and a trailing action button for undo/retry
+- **Production-minded** — FIFO queue with `maxQueue` cap, `{ force: true }` for critical interrupts, full lifecycle hooks (`onShow`, `onHide`, `onAutoDismiss`)
+- **Accessible by default** — screen-reader announcements on native (`AccessibilityInfo`) and web (`aria-live`), overridable per-toast
+- **Fabric / New Architecture only**
 
 ## Installation
 
