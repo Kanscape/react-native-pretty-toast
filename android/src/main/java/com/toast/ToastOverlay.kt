@@ -1,11 +1,17 @@
 package com.toast
 
 import android.app.Activity
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
+import android.util.LruCache
 import android.view.View
 import android.view.ViewGroup
 import java.lang.ref.WeakReference
+import java.net.URL
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import com.toast.anim.CutoutMorphAnimator
 import com.toast.anim.SlideAnimator
 import com.toast.anim.ToastAnimator
@@ -57,17 +63,32 @@ class ToastOverlay(activity: Activity) {
 
     var onDismiss: (() -> Unit)? = null
     var onPress: (() -> Unit)? = null
+    var onActionPress: (() -> Unit)? = null
+
+    private val imageLoader: ExecutorService = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "ToastIconLoader").apply { isDaemon = true }
+    }
+    // Bitmaps keyed by URI so a repeat show of the same custom icon paints
+    // synchronously — no flash of the default drawable, no re-fetch.
+    private val iconCache = LruCache<String, Bitmap>(8)
+    // Tracks the most recently requested URI. Async loads that come back
+    // after a newer request fires are dropped (late response, stale data).
+    private var currentImageUri: String = ""
 
     fun show(
         icon: String,
+        iconUri: String,
         title: String,
         message: String,
         duration: Int,
         autoDismiss: Boolean,
         enableSwipeDismiss: Boolean,
-        useDynamicIsland: Boolean = true
+        useDynamicIsland: Boolean,
+        accentColor: Int?,
+        strokeColor: Int?,
+        disableBackdropSampling: Boolean,
+        actionLabel: String,
     ) {
-        // If the dynamic island setting changed, recreate the overlay.
         if (useDynamicIsland != this.useDynamicIslandProp) {
             this.useDynamicIslandProp = useDynamicIsland
             destroy()
@@ -76,7 +97,7 @@ class ToastOverlay(activity: Activity) {
 
         if (isDismissing) {
             handler.postDelayed({
-                show(icon, title, message, duration, autoDismiss, enableSwipeDismiss, useDynamicIsland)
+                show(icon, iconUri, title, message, duration, autoDismiss, enableSwipeDismiss, useDynamicIsland, accentColor, strokeColor, disableBackdropSampling, actionLabel)
             }, 50)
             return
         }
@@ -87,14 +108,15 @@ class ToastOverlay(activity: Activity) {
         val built = ensureOverlay() ?: return
         val currentAnimator = animator ?: return
 
-        updateContent(built, icon, title, message)
+        updateContent(built, icon, iconUri, title, message, accentColor)
+        bindAction(built, actionLabel, accentColor)
+        outline?.setOverride(strokeColor)
         installGestures(built, currentAnimator, enableSwipeDismiss)
 
         if (!isShowing) {
             isShowing = true
             built.container.visibility = View.VISIBLE
 
-            // Reset transforms from any previous animation before showing.
             built.pill.animate().cancel()
             built.content.animate().cancel()
             built.pill.translationY = 0f
@@ -104,7 +126,11 @@ class ToastOverlay(activity: Activity) {
             built.content.alpha = 1f
 
             currentAnimator.show()
-            startBackdropSampling()
+            if (!disableBackdropSampling) {
+                startBackdropSampling()
+            } else {
+                stopBackdropSampling()
+            }
         }
 
         if (autoDismiss && duration > 0) {
@@ -114,21 +140,34 @@ class ToastOverlay(activity: Activity) {
     }
 
     /**
-     * Mutates the currently presented toast in place. Updates icon/title/
-     * message on the live view hierarchy and restarts the auto-dismiss timer
-     * with the new duration — does NOT re-run the expand animation.
+     * Mutates the currently presented toast in place. Updates content on the
+     * live view hierarchy and restarts the auto-dismiss timer — does NOT
+     * re-run the expand animation.
      */
     fun update(
         icon: String,
+        iconUri: String,
         title: String,
         message: String,
         duration: Int,
         autoDismiss: Boolean,
+        accentColor: Int?,
+        strokeColor: Int?,
+        disableBackdropSampling: Boolean,
+        actionLabel: String,
     ) {
         val built = views ?: return
         if (!isShowing || isDismissing) return
 
-        updateContent(built, icon, title, message)
+        updateContent(built, icon, iconUri, title, message, accentColor)
+        bindAction(built, actionLabel, accentColor)
+        outline?.setOverride(strokeColor)
+
+        if (disableBackdropSampling) {
+            stopBackdropSampling()
+        } else if (backdropSampler == null) {
+            startBackdropSampling()
+        }
 
         cancelAutoDismiss()
         if (autoDismiss && duration > 0) {
@@ -182,6 +221,9 @@ class ToastOverlay(activity: Activity) {
 
         val decorView = activity?.window?.decorView as? ViewGroup
         views?.container?.let { decorView?.removeView(it) }
+
+        imageLoader.shutdownNow()
+        iconCache.evictAll()
 
         views = null
         animator = null
@@ -261,15 +303,37 @@ class ToastOverlay(activity: Activity) {
     private fun updateContent(
         built: ToastViewFactory.Built,
         icon: String,
+        iconUri: String,
         title: String,
         message: String,
+        accentOverride: Int?,
     ) {
-        val (drawableRes, tint) = IconMapper.map(icon)
-        built.icon.setImageResource(drawableRes)
-        built.icon.setColorFilter(tint)
-        // Hand the icon tint to the outline controller as the accent colour —
-        // mirrors iOS where the pill's stroke takes the SF-symbol tint.
+        val (drawableRes, defaultTint) = IconMapper.map(icon)
+        val tint = accentOverride ?: defaultTint
+        // Accent always flows to the outline stroke, regardless of which
+        // icon path we take.
         outline?.setAccent(tint)
+
+        currentImageUri = iconUri
+        if (iconUri.isNotEmpty()) {
+            val cached = iconCache[iconUri]
+            if (cached != null) {
+                // Repeat show — apply synchronously so there's no flash of the
+                // default drawable while we "re-load" something we already have.
+                built.icon.setImageBitmap(cached)
+                built.icon.colorFilter = null
+            } else {
+                // Clear the view so the previous toast's icon (or any default)
+                // doesn't hang around while we fetch. The ImageView keeps its
+                // frame, so layout doesn't jump.
+                built.icon.setImageDrawable(null)
+                built.icon.colorFilter = null
+                loadIcon(built, iconUri)
+            }
+        } else {
+            built.icon.setImageResource(drawableRes)
+            built.icon.setColorFilter(tint)
+        }
 
         built.title.text = title
         if (message.isNotEmpty()) {
@@ -278,6 +342,86 @@ class ToastOverlay(activity: Activity) {
         } else {
             built.message.visibility = View.GONE
         }
+    }
+
+    private fun bindAction(
+        built: ToastViewFactory.Built,
+        label: String,
+        accentOverride: Int?,
+    ) {
+        if (label.isEmpty()) {
+            built.actionButton.visibility = View.GONE
+            built.actionButton.setOnClickListener(null)
+            return
+        }
+        built.actionButton.visibility = View.VISIBLE
+        built.actionButton.text = label
+        accentOverride?.let { built.actionButton.setTextColor(it) }
+        built.actionButton.setOnClickListener { onActionPress?.invoke() }
+    }
+
+    /**
+     * Accepts http(s)://, file://, and absolute filesystem paths. Bundled
+     * RN asset URIs in prod (resource names) are not supported here — users
+     * passing `require('./icon.png')` will get the dev-mode http URL in dev
+     * and will need a file URI in prod. Decoded bitmaps are cached in
+     * [iconCache] so repeat shows apply synchronously.
+     */
+    private fun loadIcon(built: ToastViewFactory.Built, uri: String) {
+        val targetW = built.icon.layoutParams.width.takeIf { it > 0 } ?: DEFAULT_ICON_TARGET_PX
+        val targetH = built.icon.layoutParams.height.takeIf { it > 0 } ?: DEFAULT_ICON_TARGET_PX
+        imageLoader.execute {
+            val bitmap = try {
+                when {
+                    uri.startsWith("http://") || uri.startsWith("https://") -> {
+                        val bytes = URL(uri).openStream().use { it.readBytes() }
+                        decodeSampled(bytes, targetW, targetH)
+                    }
+                    uri.startsWith("file://") -> decodeSampled(uri.removePrefix("file://"), targetW, targetH)
+                    uri.startsWith("/") -> decodeSampled(uri, targetW, targetH)
+                    else -> null
+                }
+            } catch (_: Throwable) {
+                null
+            } ?: return@execute
+
+            iconCache.put(uri, bitmap)
+            handler.post {
+                // Only apply if this URI is still the one we want to render.
+                // A later show() with a different URI cancels this load.
+                if (currentImageUri == uri) {
+                    built.icon.setImageBitmap(bitmap)
+                    built.icon.colorFilter = null
+                }
+            }
+        }
+    }
+
+    private fun decodeSampled(bytes: ByteArray, targetW: Int, targetH: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = calcInSampleSize(bounds.outWidth, bounds.outHeight, targetW, targetH)
+        }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+    }
+
+    private fun decodeSampled(path: String, targetW: Int, targetH: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = calcInSampleSize(bounds.outWidth, bounds.outHeight, targetW, targetH)
+        }
+        return BitmapFactory.decodeFile(path, opts)
+    }
+
+    private fun calcInSampleSize(srcW: Int, srcH: Int, dstW: Int, dstH: Int): Int {
+        if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return 1
+        var sample = 1
+        while (srcW / (sample * 2) >= dstW && srcH / (sample * 2) >= dstH) {
+            sample *= 2
+        }
+        return sample
     }
 
     private fun installGestures(
@@ -320,5 +464,7 @@ class ToastOverlay(activity: Activity) {
 
     companion object {
         private const val STATUS_BAR_RESTORE_GRACE_MS = 250L
+        // Fallback decode target if the ImageView layout params are WRAP/MATCH.
+        private const val DEFAULT_ICON_TARGET_PX = 128
     }
 }

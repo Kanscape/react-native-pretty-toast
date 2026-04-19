@@ -17,21 +17,31 @@ class ToastView(context: Context) : View(context) {
 
     // Props
     var icon: String = ""
+    var iconUri: String = ""
     var toastTitle: String = ""
     var toastMessage: String = ""
     var duration: Int = 3000
     var autoDismiss: Boolean = true
     var enableSwipeDismiss: Boolean = true
     var useDynamicIsland: Boolean = true
+    var accentColor: Int? = null
+    var strokeColor: Int? = null
+    var disableBackdropSampling: Boolean = false
+    var actionLabel: String = ""
 
     // Snapshot of values last handed to the overlay — used to detect
     // mid-flight prop changes that should map to an in-place update
     // rather than a new show cycle.
     private var lastIcon: String = ""
+    private var lastIconUri: String = ""
     private var lastTitle: String = ""
     private var lastMessage: String = ""
     private var lastDuration: Int = 3000
     private var lastAutoDismiss: Boolean = true
+    private var lastAccentColor: Int? = null
+    private var lastStrokeColor: Int? = null
+    private var lastDisableBackdropSampling: Boolean = false
+    private var lastActionLabel: String = ""
 
     init {
         visibility = GONE
@@ -39,8 +49,6 @@ class ToastView(context: Context) : View(context) {
 
     fun setVisible(visible: Boolean) {
         if (visible) {
-            // Defer to next frame so all other props (icon, title, message)
-            // are set before we actually show the toast
             pendingShow = true
             handler.post {
                 if (pendingShow) {
@@ -68,36 +76,68 @@ class ToastView(context: Context) : View(context) {
                 onPress = {
                     emitEvent("onToastPress")
                 }
+                onActionPress = {
+                    emitEvent("onToastActionPress")
+                }
             }
         }
 
-        overlay?.show(icon, toastTitle, toastMessage, duration, autoDismiss, enableSwipeDismiss, useDynamicIsland)
+        overlay?.show(
+            icon,
+            iconUri,
+            toastTitle,
+            toastMessage,
+            duration,
+            autoDismiss,
+            enableSwipeDismiss,
+            useDynamicIsland,
+            accentColor,
+            strokeColor,
+            disableBackdropSampling,
+            actionLabel,
+        )
         snapshotProps()
     }
 
-    /**
-     * Called after a prop transaction completes. If content or timing props
-     * changed while the toast is visible, push an in-place update instead of
-     * restarting the show/dismiss cycle.
-     */
     fun applyPendingUpdateIfNeeded() {
         if (!isCurrentlyShowing) return
         val changed = icon != lastIcon
+            || iconUri != lastIconUri
             || toastTitle != lastTitle
             || toastMessage != lastMessage
             || duration != lastDuration
             || autoDismiss != lastAutoDismiss
+            || accentColor != lastAccentColor
+            || strokeColor != lastStrokeColor
+            || disableBackdropSampling != lastDisableBackdropSampling
+            || actionLabel != lastActionLabel
         if (!changed) return
-        overlay?.update(icon, toastTitle, toastMessage, duration, autoDismiss)
+        overlay?.update(
+            icon,
+            iconUri,
+            toastTitle,
+            toastMessage,
+            duration,
+            autoDismiss,
+            accentColor,
+            strokeColor,
+            disableBackdropSampling,
+            actionLabel,
+        )
         snapshotProps()
     }
 
     private fun snapshotProps() {
         lastIcon = icon
+        lastIconUri = iconUri
         lastTitle = toastTitle
         lastMessage = toastMessage
         lastDuration = duration
         lastAutoDismiss = autoDismiss
+        lastAccentColor = accentColor
+        lastStrokeColor = strokeColor
+        lastDisableBackdropSampling = disableBackdropSampling
+        lastActionLabel = actionLabel
     }
 
     private fun dismissToast() {

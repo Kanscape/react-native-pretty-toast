@@ -40,6 +40,11 @@ class ToastViewManager : SimpleViewManager<ToastView>(),
         view.icon = value ?: ""
     }
 
+    @ReactProp(name = "iconUri")
+    override fun setIconUri(view: ToastView, value: String?) {
+        view.iconUri = value ?: ""
+    }
+
     @ReactProp(name = "title")
     override fun setTitle(view: ToastView, value: String?) {
         view.toastTitle = value ?: ""
@@ -70,6 +75,26 @@ class ToastViewManager : SimpleViewManager<ToastView>(),
         view.useDynamicIsland = value
     }
 
+    @ReactProp(name = "accentColor", customType = "Color")
+    override fun setAccentColor(view: ToastView, value: Int?) {
+        view.accentColor = value
+    }
+
+    @ReactProp(name = "strokeColor", customType = "Color")
+    override fun setStrokeColor(view: ToastView, value: Int?) {
+        view.strokeColor = value
+    }
+
+    @ReactProp(name = "disableBackdropSampling")
+    override fun setDisableBackdropSampling(view: ToastView, value: Boolean) {
+        view.disableBackdropSampling = value
+    }
+
+    @ReactProp(name = "actionLabel")
+    override fun setActionLabel(view: ToastView, value: String?) {
+        view.actionLabel = value ?: ""
+    }
+
     // Events
 
     override fun getExportedCustomBubblingEventTypeConstants(): Map<String, Any> {
@@ -85,6 +110,10 @@ class ToastViewManager : SimpleViewManager<ToastView>(),
             .put("onToastPress", MapBuilder.of(
                 "phasedRegistrationNames",
                 MapBuilder.of("bubbled", "onToastPress")
+            ))
+            .put("onToastActionPress", MapBuilder.of(
+                "phasedRegistrationNames",
+                MapBuilder.of("bubbled", "onToastActionPress")
             ))
             .build()
     }

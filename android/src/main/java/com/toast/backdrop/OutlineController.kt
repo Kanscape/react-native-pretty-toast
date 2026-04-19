@@ -23,6 +23,12 @@ class OutlineController(
     private var currentTint: BackdropTint = BackdropTint.GRAY
     private var currentStrokeColor: Int = Color.TRANSPARENT
     private var animator: ValueAnimator? = null
+    /**
+     * When non-null, overrides the sampler-driven stroke with a fixed color.
+     * Used by the JS-facing `strokeColor` prop; treated as the full ARGB
+     * value (alpha included — no further opacity derivation).
+     */
+    private var override: Int? = null
 
     init {
         applyStroke(strokeColorFor(currentTint))
@@ -31,9 +37,6 @@ class OutlineController(
     fun setAccent(accent: Int) {
         if (accent == accentColor) return
         accentColor = accent
-        // Re-derive the stroke without animation — the accent only changes
-        // between toasts (not mid-present), so a hard swap is fine and avoids
-        // a crossfade from the previous toast's colour.
         val target = strokeColorFor(currentTint)
         animator?.cancel()
         applyStroke(target)
@@ -42,6 +45,7 @@ class OutlineController(
     fun setTint(tint: BackdropTint, animated: Boolean) {
         if (tint == currentTint) return
         currentTint = tint
+        if (override != null) return
         val target = strokeColorFor(tint)
         if (!animated) {
             animator?.cancel()
@@ -51,7 +55,14 @@ class OutlineController(
         animateStrokeTo(target)
     }
 
-    private fun strokeColorFor(tint: BackdropTint): Int = when (tint) {
+    fun setOverride(color: Int?) {
+        if (override == color) return
+        override = color
+        animator?.cancel()
+        applyStroke(color ?: strokeColorFor(currentTint))
+    }
+
+    private fun strokeColorFor(tint: BackdropTint): Int = override ?: when (tint) {
         BackdropTint.COLORED -> withAlpha(accentColor, ACCENT_ALPHA_255)
         BackdropTint.GRAY -> withAlpha(Color.WHITE, GRAY_ALPHA_255)
     }

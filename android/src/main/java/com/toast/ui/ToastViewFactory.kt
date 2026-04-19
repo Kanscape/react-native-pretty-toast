@@ -33,6 +33,7 @@ class ToastViewFactory(
         val icon: ImageView,
         val title: TextView,
         val message: TextView,
+        val actionButton: TextView,
         /** Resting corner radius of the expanded pill (px). */
         val expandedCornerRadius: Float,
         /** Mutable background so the outline stroke can be crossfaded. */
@@ -87,11 +88,13 @@ class ToastViewFactory(
         val textContainer = buildTextContainer()
         val title = buildTitle()
         val message = buildMessage()
+        val actionButton = buildActionButton()
 
         textContainer.addView(title)
         textContainer.addView(message)
         content.addView(icon)
         content.addView(textContainer)
+        content.addView(actionButton)
         pill.addView(content)
         container.addView(pill)
         container.pillView = pill
@@ -103,6 +106,7 @@ class ToastViewFactory(
             icon = icon,
             title = title,
             message = message,
+            actionButton = actionButton,
             expandedCornerRadius = expandedCornerRadius,
             pillBackground = pillBackground,
             strokeWidthPx = strokeWidthPx,
@@ -193,5 +197,28 @@ class ToastViewFactory(
     private fun buildMessage(): TextView = TextView(activity).apply {
         setTextColor(Color.argb(153, 255, 255, 255))
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+    }
+
+    private fun buildActionButton(): TextView = TextView(activity).apply {
+        visibility = ViewGroup.GONE
+        setTextColor(Color.WHITE)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        val hPad = density.dpInt(12f)
+        val vPad = density.dpInt(6f)
+        setPadding(hPad, vPad, hPad, vPad)
+        val bg = GradientDrawable().apply {
+            setColor(Color.argb(30, 255, 255, 255))
+            cornerRadius = density.dp(20f)
+        }
+        background = bg
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            marginStart = density.dpInt(8f)
+        }
+        isClickable = true
+        isFocusable = true
     }
 }
