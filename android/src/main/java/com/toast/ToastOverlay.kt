@@ -9,6 +9,8 @@ import java.lang.ref.WeakReference
 import com.toast.anim.CutoutMorphAnimator
 import com.toast.anim.SlideAnimator
 import com.toast.anim.ToastAnimator
+import com.toast.backdrop.BackdropSampler
+import com.toast.backdrop.OutlineController
 import com.toast.cutout.CutoutDetector
 import com.toast.gesture.ToastGestureHandler
 import com.toast.ui.IconMapper
@@ -40,6 +42,8 @@ class ToastOverlay(activity: Activity) {
     private var animator: ToastAnimator? = null
     private var cutoutAnimator: CutoutMorphAnimator? = null
     private var isCutoutMorph = false
+    private var backdropSampler: BackdropSampler? = null
+    private var outline: OutlineController? = null
 
     private val handler = Handler(Looper.getMainLooper())
     private var dismissRunnable: Runnable? = null
@@ -100,6 +104,7 @@ class ToastOverlay(activity: Activity) {
             built.content.alpha = 1f
 
             currentAnimator.show()
+            startBackdropSampling()
         }
 
         if (autoDismiss && duration > 0) {
@@ -112,6 +117,14 @@ class ToastOverlay(activity: Activity) {
         if (!isShowing || isDismissing) return
         isDismissing = true
         cancelAutoDismiss()
+
+        // Stop sampling + freeze any in-flight stroke crossfade before we
+        // hand off to the animator. Runs on every dismiss path — including
+        // the `animator == null` early return below — so we never leave a
+        // tick runnable or a ValueAnimator running against a view that's
+        // about to go away.
+        stopBackdropSampling()
+        outline?.cancel()
 
         val currentAnimator = animator ?: run {
             isShowing = false
@@ -137,6 +150,9 @@ class ToastOverlay(activity: Activity) {
     fun destroy() {
         cancelAutoDismiss()
         cancelStatusBarRestore()
+        stopBackdropSampling()
+        outline?.cancel()
+        outline = null
         handler.removeCallbacksAndMessages(null)
         cutoutAnimator?.cancelPendingCallbacks()
 
@@ -180,8 +196,42 @@ class ToastOverlay(activity: Activity) {
             SlideAnimator(built.pill, density)
         }
 
+        outline = OutlineController(
+            pillBackground = built.pillBackground,
+            strokeWidthPx = built.strokeWidthPx,
+        )
+
         views = built
         return built
+    }
+
+    // MARK: - Backdrop sampling
+    //
+    // Mirrors iOS's PassThroughWindow sampler: while the toast is on-screen,
+    // average the luminance of the top strip of the app's content view and
+    // flip the outline between the toast's accent colour and a faint neutral
+    // white. `OutlineController` handles the 300 ms ARGB crossfade between
+    // the two stroke colours so the change is a soft transition, not a pop.
+
+    private fun startBackdropSampling() {
+        val activity = this.activity ?: return
+        val density = Density.from(activity.resources)
+        stopBackdropSampling()
+        val sampler = BackdropSampler(
+            activity = activity,
+            density = density,
+            onTintChanged = { tint -> outline?.setTint(tint, animated = true) },
+        )
+        backdropSampler = sampler
+        sampler.start()
+        // Seed the stroke with the sampler's first reading (which it computed
+        // synchronously in start()) so we don't flash the default grey tint.
+        outline?.setTint(sampler.tint, animated = false)
+    }
+
+    private fun stopBackdropSampling() {
+        backdropSampler?.stop()
+        backdropSampler = null
     }
 
     private fun updateContent(
@@ -193,6 +243,9 @@ class ToastOverlay(activity: Activity) {
         val (drawableRes, tint) = IconMapper.map(icon)
         built.icon.setImageResource(drawableRes)
         built.icon.setColorFilter(tint)
+        // Hand the icon tint to the outline controller as the accent colour —
+        // mirrors iOS where the pill's stroke takes the SF-symbol tint.
+        outline?.setAccent(tint)
 
         built.title.text = title
         if (message.isNotEmpty()) {

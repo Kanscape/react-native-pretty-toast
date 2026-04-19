@@ -35,6 +35,10 @@ class ToastViewFactory(
         val message: TextView,
         /** Resting corner radius of the expanded pill (px). */
         val expandedCornerRadius: Float,
+        /** Mutable background so the outline stroke can be crossfaded. */
+        val pillBackground: GradientDrawable,
+        /** Stroke line width (px), mirroring iOS's 2 pt. */
+        val strokeWidthPx: Int,
     )
 
     fun build(info: CutoutInfo): Built {
@@ -48,9 +52,14 @@ class ToastViewFactory(
             visibility = ViewGroup.GONE
         }
 
+        val strokeWidthPx = density.dpInt(2f)
         val pillBackground = GradientDrawable().apply {
             setColor(Color.BLACK)
             cornerRadius = density.dp(30f)
+            // Reserve space for the outline from the start — stroke colour
+            // is updated later by the backdrop sampler. Start transparent so
+            // the initial frame has no visible outline.
+            setStroke(strokeWidthPx, Color.TRANSPARENT)
         }
         val pill = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -95,6 +104,8 @@ class ToastViewFactory(
             title = title,
             message = message,
             expandedCornerRadius = expandedCornerRadius,
+            pillBackground = pillBackground,
+            strokeWidthPx = strokeWidthPx,
         )
     }
 
