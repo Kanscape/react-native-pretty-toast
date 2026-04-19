@@ -352,8 +352,8 @@ function announceToast(entry: ToastConfig): void {
       ? entry.accessibilityAnnouncement
       : [entry.title, entry.message].filter(Boolean).join('. ');
   if (!message) return;
-  // aria-live on the pill already announces it — this is a belt-and-braces
-  // live-region fallback for screen readers that miss transient nodes.
+  // Persistent live region as a fallback — some screen readers miss the
+  // aria-live on the transient pill.
   const live = document.getElementById('rnpt-a11y-announce');
   const el = live ?? createAnnouncer();
   el.textContent = '';

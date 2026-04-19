@@ -2,8 +2,8 @@ import SwiftUI
 import Combine
 
 enum BackdropTint {
-    case colored  // backdrop dark enough to warrant the full accent outline
-    case gray     // everything lighter — a very faint neutral outline
+    case colored
+    case gray
 }
 
 class PassThroughWindow: UIWindow, ObservableObject {
@@ -13,17 +13,11 @@ class PassThroughWindow: UIWindow, ObservableObject {
     @Published var wasTapped: Bool = false
     @Published var actionTapped: Bool = false
 
-    /// Mirrors Apple's DI: below ~#0E luminance the outline takes the
-    /// accent colour; above that point a very faint neutral outline
-    /// stays visible regardless of how much lighter the backdrop gets.
-    /// Sampled on a timer while `isPresented` is true.
     @Published var backdropTint: BackdropTint = .gray
 
     private var backdropTimer: Timer?
-    /// Debounce state for `backdropTint`. The luminance sample can cross the
-    /// flip point briefly during scroll/transition animations; we only commit
-    /// a new tint once the same value has been observed for ≥250ms so the
-    /// stroke doesn't flicker on transient backdrop changes.
+    // Debounce so the stroke doesn't flicker when the sampled luma
+    // briefly crosses the flip point during scroll/transition.
     private var pendingTint: BackdropTint?
     private var pendingTintSince: CFAbsoluteTime = 0
 
@@ -54,22 +48,12 @@ class PassThroughWindow: UIWindow, ObservableObject {
     }
 
     // MARK: - Backdrop sampling
-    //
-    // Renders a tiny bitmap of the pixels beneath the pill (top strip of the
-    // app window, below our overlay) and averages their luminance. The
-    // averaged luma then drives a three-state tint on `backdropTint`
-    // (`colored` / `gray` / `none`) calibrated against Apple's own DI flip
-    // points at #0E and #1D. Runs at ~8Hz while the toast is on-screen; the
-    // bitmap is 32×8px so the cost per sample is negligible.
 
     func startBackdropSampling() {
         stopBackdropSampling()
         sampleBackdrop()
-        // Schedule on `.common` so the timer keeps firing while the user is
-        // dragging a ScrollView — `Timer.scheduledTimer` defaults to
-        // `.default` mode, which is swapped out for `UITrackingRunLoopMode`
-        // during scroll tracking, pausing the sampler and making the
-        // outline appear to "stick" until the user lets go.
+        // `.common` mode keeps the timer firing during scroll tracking;
+        // the default mode would pause while a ScrollView is being dragged.
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.sampleBackdrop()
         }
@@ -89,10 +73,8 @@ class PassThroughWindow: UIWindow, ObservableObject {
 
     private func sampleBackdrop() {
         guard let scene = windowScene else { return }
-        // Pick the backmost visible window — i.e. the app's main window,
-        // not transient overlays (dev menu, keyboard, alerts…). `windows`
-        // isn't guaranteed ordered, so we select explicitly by the lowest
-        // `windowLevel`.
+        // Pick the backmost window so we sample the app, not transient
+        // overlays (dev menu, keyboard, alerts). `windows` isn't ordered.
         let candidates = scene.windows.filter { $0 !== self && !$0.isHidden }
         guard let contentWindow = candidates.min(by: { $0.windowLevel < $1.windowLevel }) else { return }
 
@@ -110,17 +92,14 @@ class PassThroughWindow: UIWindow, ObservableObject {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return }
 
-        // Sample the top strip where the pill sits. Wide enough to cover the
-        // expanded pill, tall enough to span title + message. Kept as tight as
-        // possible — `layer.render(in:)` cost scales with the source area.
+        // Top strip under the pill. `layer.render` cost scales with area.
         let sampleRect = CGRect(
             x: 0, y: 0,
             width: contentWindow.bounds.width,
             height: 80
         )
 
-        // CALayer.render draws in UIKit coords (top-left origin) — flip the
-        // CGContext y axis and scale so the sampleRect maps onto our bitmap.
+        // Flip + scale CG coords to UIKit (top-left origin) for layer.render.
         context.saveGState()
         context.translateBy(x: 0, y: CGFloat(bitmapHeight))
         context.scaleBy(x: 1, y: -1)
@@ -141,10 +120,8 @@ class PassThroughWindow: UIWindow, ObservableObject {
         }
         let avgLuma = totalLuma / Double(pixelCount)
 
-        // Single flip point at ~#0E (14/255 ≈ 0.055), matching Apple's DI:
-        // below that the outline takes the accent colour, above it a very
-        // faint neutral stroke stays visible on any lighter backdrop. The
-        // ±0.005 hysteresis stops pixels right on the boundary flickering.
+        // Flip around ~#0E luma with ±0.005 hysteresis: below → accent
+        // stroke, above → neutral. Matches Apple's DI behavior.
         let tint: BackdropTint
         switch backdropTint {
         case .colored:

@@ -104,8 +104,6 @@ export default function WebToastView({
     }
   };
 
-  // When the parent flips `visible` to true for a new toast, reset local
-  // lifecycle state and start the enter animation.
   useEffect(() => {
     if (!visible) return;
     clearExit();
@@ -117,11 +115,8 @@ export default function WebToastView({
     setIsDragging(false);
   }, [visible]);
 
-  // Start the exit animation whenever we should be hiding — either because
-  // the parent requested it (`visible=false`) or we initiated dismissal
-  // ourselves (auto-dismiss timer, swipe past threshold). Only fires
-  // `onToastDismiss` once the exit transition has actually completed, so
-  // queued toasts arrive on a clean slate instead of interrupting the exit.
+  // Delay onToastDismiss until the exit transition finishes so queued
+  // toasts don't interrupt the animation.
   useEffect(() => {
     const shouldExit = mounted && (!visible || dismissing);
     if (!shouldExit || exitTimerRef.current) return;
@@ -217,8 +212,7 @@ export default function WebToastView({
     setIsDragging(false);
 
     if (dy < SWIPE_THRESHOLD) {
-      // Keep dragY so the exit animation continues upward from the drag
-      // position rather than snapping back to 0 before fading.
+      // Don't reset dragY — the exit animates onward from here.
       setDismissing(true);
     } else {
       setDragY(0);

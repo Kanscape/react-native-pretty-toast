@@ -2,7 +2,6 @@ import SwiftUI
 import Combine
 import UIKit
 
-/// Bridge between the Fabric component (ObjC++) and the SwiftUI toast views.
 @objc public class ToastManager: NSObject {
     private var overlayWindow: PassThroughWindow?
     private var hostingController: CustomHostingView?
@@ -10,15 +9,12 @@ import UIKit
     private var dismissCancellable: AnyCancellable?
     private var tapCancellable: AnyCancellable?
     private var actionCancellable: AnyCancellable?
-    /// Prevents double-firing onDismiss when programmatic dismiss
-    /// also triggers the Combine subscription.
+    // Guards against double-firing onDismiss when a programmatic dismiss
+    // also trips the Combine subscription on `isPresented`.
     private var isDismissing = false
-    /// Pending status-bar restore. Fires after the collapse animation so the
-    /// bar doesn't reappear mid-animation. Cancelled by a follow-up show() so
-    /// queued toasts don't flash the status bar between them.
+    // Deferred so the status bar doesn't flash back in mid-collapse, and
+    // cancellable so a queued toast keeps it hidden across the handoff.
     private var statusBarRestoreWorkItem: DispatchWorkItem?
-    /// Image loads triggered while a URI prop is set. Kept so rapid updates
-    /// can cancel prior in-flight fetches.
     private var imageLoadTask: URLSessionDataTask?
 
     @objc public var onDismiss: (() -> Void)?
@@ -97,10 +93,6 @@ import UIKit
         }
     }
 
-    /// Mutates the currently presented toast in place. Triggers a SwiftUI
-    /// re-render via `@Published var toast` without re-running the expand
-    /// animation. Resets the auto-dismiss timer so the updated content gets
-    /// its full duration from this moment.
     @objc public func update(
         icon: String,
         iconUri: String,
@@ -119,8 +111,8 @@ import UIKit
         let accent = accentColor.map { Color($0) }
         let stroke = strokeColor.map { Color($0) }
 
-        // Preserve the previously resolved customIcon unless the URI changed
-        // (loadCustomIconIfNeeded handles the swap below).
+        // Carry the resolved customIcon forward; loadCustomIconIfNeeded
+        // swaps it if the URI changed.
         let previous = overlayWindow.toast
         overlayWindow.toast = Toast(
             symbol: icon,
@@ -203,7 +195,7 @@ import UIKit
         observeAction()
     }
 
-    /// Observe isPresented going false from swipe gesture (not from our dismiss() call).
+    // Catches swipe-dismissals that flip `isPresented` from outside dismiss().
     private func observeDismiss() {
         guard let overlayWindow else { return }
 
@@ -212,7 +204,6 @@ import UIKit
             .filter { !$0 }
             .sink { [weak self] _ in
                 guard let self, !self.isDismissing else { return }
-                // Dismissed by swipe gesture — not by our dismiss() method
                 self.isDismissing = true
                 self.cancelTimer()
                 self.overlayWindow?.stopBackdropSampling()
@@ -224,7 +215,6 @@ import UIKit
             }
     }
 
-    /// Observe tap on the toast pill — just forward to JS, don't dismiss.
     private func observeTap() {
         guard let overlayWindow else { return }
 
@@ -262,12 +252,12 @@ import UIKit
             return
         }
 
-        // data:, file:, and bundled asset URIs load synchronously.
+        // file:// URIs load synchronously; remote URLs fall through below.
         if let url = URL(string: uri),
            url.isFileURL,
            let image = UIImage(contentsOfFile: url.path) {
             overlayWindow?.toast?.customIcon = image
-            // Reassign to trigger @Published.
+            // Reassign the whole struct so @Published fires.
             if var t = overlayWindow?.toast {
                 t.customIcon = image
                 overlayWindow?.toast = t
@@ -302,11 +292,10 @@ import UIKit
         autoDismissTimer = nil
     }
 
-    /// Collapse animation is ~0.35s. Add grace so a queued toast arriving via
-    /// the JS round-trip can cancel the restore and keep the status bar hidden.
-    /// Key-window handoff is bundled in here — if it runs earlier, iOS
-    /// re-evaluates the status-bar controller to the app's main VC mid-collapse
-    /// and fades the bar in behind the shrinking pill.
+    // 0.5s ≈ collapse animation (0.35s) + JS round-trip slack so a follow-up
+    // show() can cancel this and keep the status bar hidden. Key-window
+    // handoff is bundled in to prevent the status bar from fading in
+    // behind the shrinking pill.
     private func scheduleStatusBarRestore() {
         statusBarRestoreWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
@@ -324,9 +313,8 @@ import UIKit
     }
 
     deinit {
-        // deinit may run on any thread; Timer.invalidate() must run on the
-        // runloop the timer was scheduled on (main), and UIWindow mutation is
-        // main-thread-only. Break the retain cycle asynchronously on main.
+        // deinit may run off-main; Timer/UIWindow teardown must happen on
+        // main, so hop over before breaking the retain cycle.
         let window = overlayWindow
         let dismissCancel = dismissCancellable
         let tapCancel = tapCancellable
@@ -342,8 +330,8 @@ import UIKit
             actionCancel?.cancel()
             loadTask?.cancel()
             window?.stopBackdropSampling()
-            // Break PassThroughWindow → rootViewController → PrettyToastView →
-            // @ObservedObject window so the window can actually deallocate.
+            // Break the window ↔ hosting controller ↔ PrettyToastView cycle
+            // so the window can actually deallocate.
             window?.rootViewController = nil
             window?.isHidden = true
         }

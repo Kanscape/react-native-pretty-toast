@@ -130,9 +130,6 @@ using namespace facebook::react;
             [self dismissToast];
         }
     } else if (_isCurrentlyShowing && _visible && (textChanged || timingChanged || styleChanged)) {
-        // In-place mid-flight update. The overlay window's SwiftUI view
-        // observes the Toast model, so mutating it re-renders content
-        // without re-triggering the expand animation.
         [_manager updateWithIcon:_icon
                          iconUri:_iconUri
                            title:_title

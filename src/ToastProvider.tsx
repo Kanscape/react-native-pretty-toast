@@ -48,8 +48,7 @@ export function ToastProvider({
   const [current, setCurrent] = useState<ToastEntry | null>(null);
   const [visible, setVisible] = useState(false);
 
-  // Use refs for synchronous state tracking — React state batching
-  // causes stale reads when multiple show() calls fire in the same tick.
+  // Refs avoid stale reads when multiple show() calls land in the same tick.
   const queueRef = useRef<ToastEntry[]>([]);
   const isShowingRef = useRef(false);
   const currentRef = useRef<ToastEntry | null>(null);
@@ -57,10 +56,8 @@ export function ToastProvider({
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
-  // Tracks whether the current dismissal was caused by the auto-dismiss
-  // timer expiring on the native side vs. an explicit programmatic dismiss.
-  // The native layer doesn't distinguish these, so we mirror the timer
-  // here to fire `onAutoDismiss`.
+  // Native doesn't distinguish auto- from programmatic dismiss, so mirror
+  // the timer here to drive `onAutoDismiss`.
   const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -127,7 +124,7 @@ export function ToastProvider({
   const showNext = useCallback(() => {
     const next = queueRef.current.shift();
     if (next) {
-      // Ensure native sees a visible false→true transition.
+      // Force a false→true edge so native re-triggers the expand animation.
       setVisible(false);
       if (transitionTimeoutRef.current !== null) {
         clearTimeout(transitionTimeoutRef.current);
@@ -168,7 +165,6 @@ export function ToastProvider({
 
       if (options?.force && isShowingRef.current) {
         queueRef.current.unshift(entry);
-        // Mark as programmatic to suppress onAutoDismiss on this dismissal.
         autoDismissedRef.current = false;
         clearAutoDismissTimer();
         setVisible(false);
@@ -196,14 +192,9 @@ export function ToastProvider({
   const update = useCallback(
     (id: string, partial: Partial<Omit<ToastConfig, 'id'>>) => {
       if (currentRef.current?.id === id) {
-        // Mutating state re-renders ToastViewNativeComponent with new props;
-        // the native side detects text/icon/duration changes while visible
-        // and applies them in place without re-animating.
         const updated: ToastEntry = { ...currentRef.current, ...partial, id };
         currentRef.current = updated;
         setCurrent(updated);
-        // Restart the JS-side auto-dismiss mirror so onAutoDismiss fires
-        // relative to the updated content.
         armAutoDismissTimer(updated);
         return;
       }
@@ -222,7 +213,6 @@ export function ToastProvider({
         typeof messages.loading === 'string'
           ? { title: messages.loading }
           : { ...messages.loading };
-      // Loading toasts shouldn't auto-dismiss unless caller opts in.
       if (loadingCfg.autoDismiss === undefined) loadingCfg.autoDismiss = false;
       if (!loadingCfg.icon) loadingCfg.icon = 'arrow.triangle.2.circlepath';
       const id = show(loadingCfg);
@@ -265,10 +255,8 @@ export function ToastProvider({
         queueRef.current = queueRef.current.filter((t) => t.id !== id);
         return;
       }
-      // Explicit user dismissal — overrides the mirror timer so the
-      // upcoming onToastDismiss event from native doesn't fire
-      // onAutoDismiss just because the mirror already ticked over
-      // during the 0.35s native collapse window.
+      // Programmatic dismiss: clear the mirror so the native collapse
+      // doesn't race it into firing onAutoDismiss.
       clearAutoDismissTimer();
       autoDismissedRef.current = false;
       setVisible(false);
@@ -295,9 +283,7 @@ export function ToastProvider({
   }, [clearAutoDismissTimer, showNext]);
 
   const handleShow = useCallback(() => {
-    // Native-side onShow fires when the expand animation finishes.
-    // `presentToast` already invoked the JS `onShow`, so no-op here —
-    // but this handler exists so the event is observed and not dropped.
+    // Observed so the event isn't dropped; presentToast already fired onShow.
   }, []);
 
   const handlePress = useCallback(() => {
@@ -392,9 +378,7 @@ function announceToast(entry: ToastConfig): void {
   if (!message) return;
   try {
     AccessibilityInfo.announceForAccessibility(message);
-  } catch {
-    // announceForAccessibility is best-effort; never throw on a11y failure.
-  }
+  } catch {}
 }
 
 const styles = StyleSheet.create({

@@ -1,10 +1,7 @@
 import SwiftUI
 
-/// The SwiftUI toast view — ported from Kavsoft's DynamicIslandToast.
-/// Uses ObservableObject/Published for broad iOS compatibility.
 struct PrettyToastView: View {
     @ObservedObject var window: PassThroughWindow
-    /// Measured height of the toast content (icon + text block)
     @State private var measuredContentHeight: CGFloat = 0
 
     var body: some View {
@@ -16,16 +13,12 @@ struct PrettyToastView: View {
             let dynamicIslandWidth: CGFloat = 120
             let dynamicIslandHeight: CGFloat = 36
             let topOffset: CGFloat = 11 + max((safeArea.top - 59), 0)
-            // Nudge the expanded pill up slightly so the centered stroke at the
-            // pill's top edge clears the DI's top line instead of sitting
-            // half-behind it. The collapsed frame still morphs from `topOffset`
-            // so the DI shape alignment is preserved.
+            // Nudge up 0.5pt so the centered stroke clears the DI's top line
+            // instead of sitting half-behind it.
             let expandedTopOffset: CGFloat = topOffset - 0.5
 
             let expandedWidth = size.width - (topOffset * 2)
-            // Base height from original. Add extra if content overflows.
             let baseHeight: CGFloat = haveDynamicIsland ? 90 : 70
-            // Content area = baseHeight minus top DI space minus bottom padding
             let baseContentArea: CGFloat = haveDynamicIsland ? (baseHeight - dynamicIslandHeight - 12) : (baseHeight - 20)
             let overflow = max(0, measuredContentHeight - baseContentArea)
             let expandedHeight: CGFloat = baseHeight + overflow
@@ -61,9 +54,6 @@ struct PrettyToastView: View {
                             }
                         }
                     )
-                    // Use offset AFTER gestures — for DI it's fine since the offset
-                    // is small and the pill is near the top. For non-DI, we use padding
-                    // on the ZStack instead so the layout position matches.
                     .offset(y: haveDynamicIsland ? (isExpanded ? expandedTopOffset : topOffset) : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -121,8 +111,8 @@ struct PrettyToastView: View {
             .blur(radius: isExpanded ? 0 : 5)
             .opacity(isExpanded ? 1 : 0)
 
-            // Hidden measurer: same content without Spacer/padding that affect layout,
-            // constrained to the available text width, to get the natural content height.
+            // Hidden measurer — drives measuredContentHeight so the pill grows
+            // for overflowing text.
             HStack(spacing: 10) {
                 Color.clear.frame(width: 50, height: 1)
 
@@ -155,21 +145,10 @@ struct PrettyToastView: View {
         }
     }
 
-    // MARK: - Pill background
-    //
-    // Pure black capsule with a dim outline. Mirrors Apple's DI: below
-    // ~#0E luminance the outline takes the toast's accent colour; above
-    // that point a very faint neutral outline stays visible on any
-    // backdrop. `window.backdropTint` is driven by `PassThroughWindow`'s
-    // luminance sampler. Two stroke layers crossfade independently so the
-    // colour swap is a soft transition, not a pop.
-
     private func toastBackground() -> some View {
         let accent = window.toast?.accentColor ?? .white
         let strokeOverride = window.toast?.strokeOverride
         let disableSampling = window.toast?.disableBackdropSampling ?? false
-        // If sampling is disabled, freeze the tint to gray so the static
-        // neutral stroke layer is the one rendered.
         let tint: BackdropTint = disableSampling ? .gray : window.backdropTint
         return Group {
             if #available(iOS 26, *) {
@@ -199,26 +178,13 @@ struct PrettyToastView: View {
         strokeOverride: Color?,
         tint: BackdropTint
     ) -> some View {
-        // Two stacked stroke layers, each with its own scoped opacity
-        // animation. Using the iOS 17 closure overload scopes the easeInOut
-        // to just the opacity transform; frame changes fall through to the
-        // ambient bouncy animation so the stroke never drifts away from the
-        // pill geometry during expand/collapse.
         shape
             .fill(.black)
             .overlay {
                 ZStack {
                     if let override = strokeOverride {
-                        // Explicit stroke override — paint a single fixed
-                        // layer at full alpha. No crossfade; the caller owns
-                        // the color, including its alpha channel.
                         strokeLayer(shape: shape, color: override, alpha: 1.0, visible: isExpanded)
                     } else {
-                        // Accent layer ~20% alpha reads well on very dark
-                        // backdrops. The neutral gray layer is pinned much
-                        // lower (~6%) so it just barely separates the pill
-                        // from a near-black backdrop and fades into nothing on
-                        // lighter ones — matching Apple's restrained DI look.
                         strokeLayer(shape: shape, color: accent, alpha: 0.2, visible: isExpanded && tint == .colored)
                         strokeLayer(shape: shape, color: .white, alpha: 0.06, visible: isExpanded && tint == .gray)
                     }
@@ -230,6 +196,8 @@ struct PrettyToastView: View {
     private func strokeLayer<S: Shape>(shape: S, color: Color, alpha: Double, visible: Bool) -> some View {
         let stroke = shape.stroke(color.opacity(alpha), lineWidth: 1.5)
         if #available(iOS 17, *) {
+            // Scope easeInOut to opacity only; frame changes keep the bouncy
+            // ambient animation so the stroke tracks the pill geometry.
             stroke.animation(.easeInOut(duration: 0.3)) { view in
                 view.opacity(visible ? 1 : 0)
             }
@@ -244,12 +212,6 @@ struct PrettyToastView: View {
         window.isPresented
     }
 }
-
-// MARK: - Icon view
-//
-// Renders either the resolved custom UIImage (when a consumer passed an
-// `iconSource`) or the SF Symbol fallback. The symbol path keeps the wiggle
-// effect on expand; the custom image path uses plain content-fit scaling.
 
 struct ToastIconView: View {
     let toast: Toast
@@ -271,16 +233,12 @@ struct ToastIconView: View {
     }
 }
 
-// MARK: - Preference key
-
 private struct ContentHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
     }
 }
-
-// MARK: - Wiggle effect (iOS 18+)
 
 private struct WiggleModifier: ViewModifier {
     let isExpanded: Bool
@@ -293,8 +251,6 @@ private struct WiggleModifier: ViewModifier {
         }
     }
 }
-
-// MARK: - Compatibility modifiers
 
 private struct CapsuleOpacityModifier: ViewModifier {
     let haveDynamicIsland: Bool
