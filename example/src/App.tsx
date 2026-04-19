@@ -16,6 +16,7 @@ import {
   ToastProvider,
   useToast,
 } from 'react-native-pretty-toast';
+import { version } from '../../package.json';
 
 // Imperative API demo: these helpers live outside the component tree
 // and can be called from anywhere (API clients, redux middleware, utils).
@@ -472,7 +473,7 @@ function HomeScreen() {
             <Text style={styles.badgeText}>Fabric</Text>
           </View>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>v0.1.0</Text>
+            <Text style={styles.badgeText}>v{version}</Text>
           </View>
         </View>
         <View style={styles.themeToggleRow}>
