@@ -22,7 +22,7 @@ struct PrettyToastView: View {
             // so the DI shape alignment is preserved.
             let expandedTopOffset: CGFloat = topOffset - 0.5
 
-            let expandedWidth = size.width - 20
+            let expandedWidth = size.width - (topOffset * 2)
             // Base height from original. Add extra if content overflows.
             let baseHeight: CGFloat = haveDynamicIsland ? 90 : 70
             // Content area = baseHeight minus top DI space minus bottom padding
