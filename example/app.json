@@ -29,6 +29,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "baseUrl": "/react-native-pretty-toast"
     }
   }
 }
