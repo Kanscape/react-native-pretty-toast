@@ -165,7 +165,6 @@ import UIKit
         imageLoadTask?.cancel()
         imageLoadTask = nil
         scheduleStatusBarRestore()
-        restoreKeyWindow()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.onDismiss?()
@@ -218,7 +217,6 @@ import UIKit
                 self.cancelTimer()
                 self.overlayWindow?.stopBackdropSampling()
                 self.scheduleStatusBarRestore()
-                self.restoreKeyWindow()
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
                     self?.onDismiss?()
@@ -306,10 +304,15 @@ import UIKit
 
     /// Collapse animation is ~0.35s. Add grace so a queued toast arriving via
     /// the JS round-trip can cancel the restore and keep the status bar hidden.
+    /// Key-window handoff is bundled in here — if it runs earlier, iOS
+    /// re-evaluates the status-bar controller to the app's main VC mid-collapse
+    /// and fades the bar in behind the shrinking pill.
     private func scheduleStatusBarRestore() {
         statusBarRestoreWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            self?.hostingController?.isStatusBarHidden = false
+            guard let self else { return }
+            self.hostingController?.isStatusBarHidden = false
+            self.restoreKeyWindow()
         }
         statusBarRestoreWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
