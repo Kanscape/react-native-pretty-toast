@@ -23,6 +23,11 @@ class ToastViewManager : SimpleViewManager<ToastView>(),
         return ToastView(context)
     }
 
+    override fun onAfterUpdateTransaction(view: ToastView) {
+        super.onAfterUpdateTransaction(view)
+        view.applyPendingUpdateIfNeeded()
+    }
+
     // Props
 
     @ReactProp(name = "visible")

@@ -21,29 +21,21 @@ import { version } from '../../package.json';
 // Imperative API demo: these helpers live outside the component tree
 // and can be called from anywhere (API clients, redux middleware, utils).
 async function simulateApiCall() {
-  const id = imperativeToast.show({
-    icon: 'arrow.triangle.2.circlepath',
-    title: 'Syncing...',
-    message: 'Fetching latest data',
-    duration: 0,
-    autoDismiss: false,
-  });
-
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  imperativeToast.dismiss(id);
-  imperativeToast.show({
-    icon: 'checkmark.seal.fill',
-    title: 'Sync complete',
-    message: 'All data is up to date',
-    duration: 2500,
+  const work = new Promise<{ items: number }>((resolve) =>
+    setTimeout(() => resolve({ items: 42 }), 1500)
+  );
+  await imperativeToast.promise(work, {
+    loading: { title: 'Syncing...', message: 'Fetching latest data' },
+    success: (value) => ({
+      title: 'Sync complete',
+      message: `${value.items} items up to date`,
+    }),
+    error: 'Sync failed',
   });
 }
 
 function reportErrorFromModule(err: Error) {
-  imperativeToast.show({
-    icon: 'exclamationmark.triangle.fill',
-    title: 'Unexpected error',
+  imperativeToast.error('Unexpected error', {
     message: err.message,
     duration: 4000,
   });
@@ -200,35 +192,30 @@ function HomeScreen() {
 
   const sections: Section[] = [
     {
-      title: 'Feedback',
-      footer: 'Status toasts with semantic color tinting.',
+      title: 'Variants',
+      footer: 'Preset shortcuts: toast.success / error / info / warning.',
       rows: [
         {
           id: 'success',
           title: 'Success',
-          subtitle: 'Transaction completed',
+          subtitle: 'toast.success(…)',
           glyph: '✓',
           tint: colors.systemGreen,
           onPress: () => {
             setCount((c) => c + 1);
-            toast.show({
-              icon: 'checkmark.seal.fill',
-              title: 'Transaction Success!',
+            toast.success('Transaction Success!', {
               message: `Payment #${count + 1} completed`,
-              duration: 3000,
             });
           },
         },
         {
           id: 'error',
           title: 'Error',
-          subtitle: 'Something went wrong',
+          subtitle: 'toast.error(…)',
           glyph: '✕',
           tint: colors.systemRed,
           onPress: () => {
-            toast.show({
-              icon: 'xmark.seal.fill',
-              title: 'Transaction Failed!',
+            toast.error('Transaction Failed!', {
               message: 'Please try again later',
               duration: 4000,
             });
@@ -237,31 +224,134 @@ function HomeScreen() {
         {
           id: 'info',
           title: 'Info',
-          subtitle: 'Neutral information',
+          subtitle: 'toast.info(…)',
           glyph: 'i',
           glyphStyle: 'serifItalic',
           tint: colors.systemBlue,
           onPress: () => {
-            toast.show({
-              icon: 'info.circle.fill',
-              title: 'Info',
-              message: 'Tap the button to continue',
-              duration: 3000,
-            });
+            toast.info('Info', { message: 'Tap the button to continue' });
           },
         },
         {
           id: 'warning',
           title: 'Warning',
-          subtitle: 'Attention required',
+          subtitle: 'toast.warning(…)',
           glyph: '!',
           tint: colors.systemOrange,
           onPress: () => {
+            toast.warning('Warning', { message: 'Low battery' });
+          },
+        },
+      ],
+    },
+    {
+      title: 'Promise & Update',
+      footer:
+        'toast.promise morphs loading → result. toast.update mutates an existing toast.',
+      rows: [
+        {
+          id: 'promise',
+          title: 'toast.promise',
+          subtitle: 'Loading → success in one call',
+          glyph: '↻',
+          tint: colors.systemIndigo,
+          onPress: () => {
+            const work = new Promise<number>((resolve) =>
+              setTimeout(() => resolve(Math.floor(Math.random() * 100)), 1800)
+            );
+            toast.promise(work, {
+              loading: 'Uploading…',
+              success: (n) => `Uploaded ${n} files`,
+              error: 'Upload failed',
+            });
+          },
+        },
+        {
+          id: 'promise-reject',
+          title: 'Promise rejects',
+          subtitle: 'loading → error',
+          glyph: '⚠',
+          tint: colors.systemOrange,
+          onPress: () => {
+            const work = new Promise<void>((_, reject) =>
+              setTimeout(() => reject(new Error('Network')), 1400)
+            );
+            toast
+              .promise(work, {
+                loading: 'Saving…',
+                success: 'Saved',
+                error: (e) => `Failed: ${(e as Error).message}`,
+              })
+              .catch(() => {});
+          },
+        },
+        {
+          id: 'update',
+          title: 'toast.update',
+          subtitle: 'Live-mutate the active toast',
+          glyph: '✎',
+          tint: colors.systemTeal,
+          onPress: () => {
+            const id = toast.loading('Preparing…', {
+              message: 'Step 1 of 3',
+            });
+            setTimeout(() => toast.update(id, { message: 'Step 2 of 3' }), 900);
+            setTimeout(() => {
+              toast.update(id, {
+                icon: 'checkmark.circle.fill',
+                title: 'Done',
+                message: 'All 3 steps complete',
+                autoDismiss: true,
+                duration: 2500,
+              });
+            }, 1800);
+          },
+        },
+      ],
+    },
+    {
+      title: 'Advanced',
+      footer: 'force bypasses the queue. Lifecycle callbacks log to console.',
+      rows: [
+        {
+          id: 'force',
+          title: 'Force (interrupt)',
+          subtitle: 'Queues a slow toast, then forces over it',
+          glyph: '⚡',
+          tint: colors.systemPurple,
+          onPress: () => {
             toast.show({
-              icon: 'exclamationmark.triangle.fill',
-              title: 'Warning',
-              message: 'Low battery',
-              duration: 3000,
+              icon: 'info.circle.fill',
+              title: 'Background task',
+              message: 'Will be interrupted',
+              duration: 10000,
+            });
+            setTimeout(() => {
+              toast.show(
+                {
+                  icon: 'exclamationmark.triangle.fill',
+                  title: 'Session expired',
+                  message: 'Please log in again',
+                  duration: 3500,
+                },
+                { force: true }
+              );
+            }, 600);
+          },
+        },
+        {
+          id: 'lifecycle',
+          title: 'Lifecycle callbacks',
+          subtitle: 'onShow / onHide / onAutoDismiss',
+          glyph: '◎',
+          tint: colors.systemMint,
+          onPress: () => {
+            toast.info('Watching lifecycle', {
+              message: 'Check the JS console',
+              duration: 1500,
+              onShow: () => console.log('[toast] onShow'),
+              onHide: () => console.log('[toast] onHide'),
+              onAutoDismiss: () => console.log('[toast] onAutoDismiss'),
             });
           },
         },
@@ -499,7 +589,11 @@ function HomeScreen() {
 
 export default function App() {
   return (
-    <ToastProvider useDynamicIsland={true}>
+    <ToastProvider
+      useDynamicIsland={true}
+      defaultConfig={{ duration: 3000, autoDismiss: true }}
+      maxQueue={5}
+    >
       <HomeScreen />
     </ToastProvider>
   );

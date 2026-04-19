@@ -79,6 +79,12 @@ using namespace facebook::react;
     const auto &oldViewProps = *std::static_pointer_cast<ToastViewProps const>(_props);
     const auto &newViewProps = *std::static_pointer_cast<ToastViewProps const>(props);
 
+    BOOL textChanged = oldViewProps.icon != newViewProps.icon
+                    || oldViewProps.title != newViewProps.title
+                    || oldViewProps.message != newViewProps.message;
+    BOOL timingChanged = oldViewProps.duration != newViewProps.duration
+                      || oldViewProps.autoDismiss != newViewProps.autoDismiss;
+
     _visible = newViewProps.visible;
     _duration = newViewProps.duration;
     _autoDismiss = newViewProps.autoDismiss;
@@ -96,6 +102,15 @@ using namespace facebook::react;
         } else {
             [self dismissToast];
         }
+    } else if (_isCurrentlyShowing && _visible && (textChanged || timingChanged)) {
+        // In-place mid-flight update. The overlay window's SwiftUI view
+        // observes the Toast model, so mutating it re-renders content
+        // without re-triggering the expand animation.
+        [_manager updateWithIcon:_icon
+                           title:_title
+                         message:_message
+                        duration:_duration
+                     autoDismiss:_autoDismiss];
     }
 }
 

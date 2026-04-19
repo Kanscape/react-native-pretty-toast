@@ -1,4 +1,9 @@
-import type { ToastConfig, ToastRef } from './types';
+import type {
+  PromiseMessages,
+  ShowOptions,
+  ToastConfig,
+  ToastRef,
+} from './types';
 
 let activeRef: ToastRef | null = null;
 
@@ -17,12 +22,81 @@ function warnNoProvider(method: string): void {
 }
 
 export const toast = {
-  show(config: ToastConfig): string {
+  show(config: ToastConfig, options?: ShowOptions): string {
     if (!activeRef) {
       warnNoProvider('show');
       return '';
     }
-    return activeRef.show(config);
+    return activeRef.show(config, options);
+  },
+  success(
+    title: string,
+    config?: Omit<ToastConfig, 'title'>,
+    options?: ShowOptions
+  ): string {
+    if (!activeRef) {
+      warnNoProvider('success');
+      return '';
+    }
+    return activeRef.success(title, config, options);
+  },
+  error(
+    title: string,
+    config?: Omit<ToastConfig, 'title'>,
+    options?: ShowOptions
+  ): string {
+    if (!activeRef) {
+      warnNoProvider('error');
+      return '';
+    }
+    return activeRef.error(title, config, options);
+  },
+  info(
+    title: string,
+    config?: Omit<ToastConfig, 'title'>,
+    options?: ShowOptions
+  ): string {
+    if (!activeRef) {
+      warnNoProvider('info');
+      return '';
+    }
+    return activeRef.info(title, config, options);
+  },
+  warning(
+    title: string,
+    config?: Omit<ToastConfig, 'title'>,
+    options?: ShowOptions
+  ): string {
+    if (!activeRef) {
+      warnNoProvider('warning');
+      return '';
+    }
+    return activeRef.warning(title, config, options);
+  },
+  loading(
+    title: string,
+    config?: Omit<ToastConfig, 'title'>,
+    options?: ShowOptions
+  ): string {
+    if (!activeRef) {
+      warnNoProvider('loading');
+      return '';
+    }
+    return activeRef.loading(title, config, options);
+  },
+  update(id: string, partial: Partial<Omit<ToastConfig, 'id'>>): void {
+    if (!activeRef) {
+      warnNoProvider('update');
+      return;
+    }
+    activeRef.update(id, partial);
+  },
+  promise<T>(promise: Promise<T>, messages: PromiseMessages<T>): Promise<T> {
+    if (!activeRef) {
+      warnNoProvider('promise');
+      return promise;
+    }
+    return activeRef.promise(promise, messages);
   },
   dismiss(id?: string): void {
     if (!activeRef) {

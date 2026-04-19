@@ -113,6 +113,30 @@ class ToastOverlay(activity: Activity) {
         }
     }
 
+    /**
+     * Mutates the currently presented toast in place. Updates icon/title/
+     * message on the live view hierarchy and restarts the auto-dismiss timer
+     * with the new duration — does NOT re-run the expand animation.
+     */
+    fun update(
+        icon: String,
+        title: String,
+        message: String,
+        duration: Int,
+        autoDismiss: Boolean,
+    ) {
+        val built = views ?: return
+        if (!isShowing || isDismissing) return
+
+        updateContent(built, icon, title, message)
+
+        cancelAutoDismiss()
+        if (autoDismiss && duration > 0) {
+            dismissRunnable = Runnable { dismiss() }
+            handler.postDelayed(dismissRunnable!!, duration.toLong())
+        }
+    }
+
     fun dismiss() {
         if (!isShowing || isDismissing) return
         isDismissing = true

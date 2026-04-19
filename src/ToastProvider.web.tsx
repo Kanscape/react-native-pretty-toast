@@ -1,12 +1,21 @@
 import React, {
   createContext,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import WebToastView from './WebToastView';
-import type { ToastConfig, ToastRef } from './types';
+import { _setActiveToastRef } from './toast';
+import type {
+  PromiseMessages,
+  ShowOptions,
+  ToastConfig,
+  ToastProviderDefaults,
+  ToastRef,
+} from './types';
+import { variantConfig, type ToastVariant } from './variants';
 
 export const ToastContext = createContext<ToastRef | null>(null);
 
@@ -15,11 +24,15 @@ type ToastEntry = ToastConfig & { id: string };
 interface ToastProviderProps {
   children: React.ReactNode;
   useDynamicIsland?: boolean;
+  defaultConfig?: ToastProviderDefaults;
+  maxQueue?: number;
 }
 
 export function ToastProvider({
   children,
   useDynamicIsland = true,
+  defaultConfig,
+  maxQueue,
 }: ToastProviderProps) {
   const [current, setCurrent] = useState<ToastEntry | null>(null);
   const [visible, setVisible] = useState(false);
@@ -28,24 +41,79 @@ export function ToastProvider({
   const isShowingRef = useRef(false);
   const currentRef = useRef<ToastEntry | null>(null);
   const idCounterRef = useRef(0);
+  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const autoDismissedRef = useRef(false);
+  const defaultConfigRef = useRef(defaultConfig);
+  defaultConfigRef.current = defaultConfig;
 
   const generateId = useCallback(
     (): string => `toast-${++idCounterRef.current}-${Date.now()}`,
     []
   );
 
-  const presentToast = useCallback((entry: ToastEntry) => {
-    isShowingRef.current = true;
-    currentRef.current = entry;
-    setCurrent(entry);
-    setVisible(true);
+  const clearAutoDismissTimer = useCallback(() => {
+    if (autoDismissTimerRef.current !== null) {
+      clearTimeout(autoDismissTimerRef.current);
+      autoDismissTimerRef.current = null;
+    }
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current !== null) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+      clearAutoDismissTimer();
+    };
+  }, [clearAutoDismissTimer]);
+
+  const mergeDefaults = useCallback((config: ToastConfig): ToastConfig => {
+    const defaults = defaultConfigRef.current;
+    if (!defaults) return config;
+    return { ...defaults, ...config };
+  }, []);
+
+  const armAutoDismissTimer = useCallback(
+    (entry: ToastEntry) => {
+      clearAutoDismissTimer();
+      autoDismissedRef.current = false;
+      const autoDismiss = entry.autoDismiss ?? true;
+      const duration = entry.duration ?? 3000;
+      if (!autoDismiss || duration <= 0) return;
+      autoDismissTimerRef.current = setTimeout(() => {
+        autoDismissTimerRef.current = null;
+        autoDismissedRef.current = true;
+      }, duration);
+    },
+    [clearAutoDismissTimer]
+  );
+
+  const presentToast = useCallback(
+    (entry: ToastEntry) => {
+      isShowingRef.current = true;
+      currentRef.current = entry;
+      setCurrent(entry);
+      setVisible(true);
+      armAutoDismissTimer(entry);
+      entry.onShow?.();
+    },
+    [armAutoDismissTimer]
+  );
 
   const showNext = useCallback(() => {
     const next = queueRef.current.shift();
     if (next) {
       setVisible(false);
-      setTimeout(() => {
+      if (transitionTimeoutRef.current !== null) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+      transitionTimeoutRef.current = setTimeout(() => {
+        transitionTimeoutRef.current = null;
         presentToast(next);
       }, 50);
     } else {
@@ -56,51 +124,176 @@ export function ToastProvider({
     }
   }, [presentToast]);
 
-  const show = useCallback(
-    (config: ToastConfig): string => {
-      const id = config.id ?? generateId();
-      const entry: ToastEntry = { ...config, id };
-
+  const enqueueOrShow = useCallback(
+    (entry: ToastEntry) => {
       if (!isShowingRef.current) {
         presentToast(entry);
-      } else {
-        queueRef.current.push(entry);
+        return;
       }
-
-      return id;
+      queueRef.current.push(entry);
+      if (typeof maxQueue === 'number' && maxQueue >= 0) {
+        while (queueRef.current.length > maxQueue) {
+          queueRef.current.shift();
+        }
+      }
     },
-    [presentToast, generateId]
+    [maxQueue, presentToast]
   );
 
-  const dismiss = useCallback((id?: string) => {
-    if (id && currentRef.current?.id !== id) {
-      queueRef.current = queueRef.current.filter((t) => t.id !== id);
-      return;
-    }
-    setVisible(false);
-  }, []);
+  const show = useCallback(
+    (config: ToastConfig, options?: ShowOptions): string => {
+      const merged = mergeDefaults(config);
+      const id = merged.id ?? generateId();
+      const entry: ToastEntry = { ...merged, id };
+
+      if (options?.force && isShowingRef.current) {
+        queueRef.current.unshift(entry);
+        autoDismissedRef.current = false;
+        clearAutoDismissTimer();
+        setVisible(false);
+      } else {
+        enqueueOrShow(entry);
+      }
+      return id;
+    },
+    [clearAutoDismissTimer, enqueueOrShow, generateId, mergeDefaults]
+  );
+
+  const showVariant = useCallback(
+    (
+      variant: ToastVariant,
+      title: string,
+      config?: Omit<ToastConfig, 'title'>,
+      options?: ShowOptions
+    ): string => {
+      return show(variantConfig(variant, title, config), options);
+    },
+    [show]
+  );
+
+  const update = useCallback(
+    (id: string, partial: Partial<Omit<ToastConfig, 'id'>>) => {
+      if (currentRef.current?.id === id) {
+        const updated: ToastEntry = { ...currentRef.current, ...partial, id };
+        currentRef.current = updated;
+        setCurrent(updated);
+        armAutoDismissTimer(updated);
+        return;
+      }
+      const idx = queueRef.current.findIndex((t) => t.id === id);
+      if (idx !== -1) {
+        const existing = queueRef.current[idx] as ToastEntry;
+        queueRef.current[idx] = { ...existing, ...partial, id };
+      }
+    },
+    [armAutoDismissTimer]
+  );
+
+  const promise = useCallback(
+    <T,>(p: Promise<T>, messages: PromiseMessages<T>): Promise<T> => {
+      const loadingCfg: ToastConfig =
+        typeof messages.loading === 'string'
+          ? { title: messages.loading }
+          : { ...messages.loading };
+      if (loadingCfg.autoDismiss === undefined) loadingCfg.autoDismiss = false;
+      if (!loadingCfg.icon) loadingCfg.icon = 'arrow.triangle.2.circlepath';
+      const id = show(loadingCfg);
+
+      p.then(
+        (value) => {
+          const next = messages.success;
+          const resolved = typeof next === 'function' ? next(value) : next;
+          const cfg: ToastConfig =
+            typeof resolved === 'string'
+              ? { title: resolved }
+              : { ...resolved };
+          if (!cfg.icon) cfg.icon = 'checkmark.circle.fill';
+          if (cfg.autoDismiss === undefined) cfg.autoDismiss = true;
+          if (cfg.duration === undefined) cfg.duration = 3000;
+          update(id, cfg);
+        },
+        (err) => {
+          const next = messages.error;
+          const resolved = typeof next === 'function' ? next(err) : next;
+          const cfg: ToastConfig =
+            typeof resolved === 'string'
+              ? { title: resolved }
+              : { ...resolved };
+          if (!cfg.icon) cfg.icon = 'xmark.circle.fill';
+          if (cfg.autoDismiss === undefined) cfg.autoDismiss = true;
+          if (cfg.duration === undefined) cfg.duration = 3000;
+          update(id, cfg);
+        }
+      );
+
+      return p;
+    },
+    [show, update]
+  );
+
+  const dismiss = useCallback(
+    (id?: string) => {
+      if (id && currentRef.current?.id !== id) {
+        queueRef.current = queueRef.current.filter((t) => t.id !== id);
+        return;
+      }
+      clearAutoDismissTimer();
+      autoDismissedRef.current = false;
+      setVisible(false);
+    },
+    [clearAutoDismissTimer]
+  );
 
   const dismissAll = useCallback(() => {
     queueRef.current = [];
+    clearAutoDismissTimer();
+    autoDismissedRef.current = false;
     setVisible(false);
-  }, []);
+  }, [clearAutoDismissTimer]);
 
   const handleDismiss = useCallback(() => {
+    const entry = currentRef.current;
+    clearAutoDismissTimer();
+    if (entry) {
+      if (autoDismissedRef.current) entry.onAutoDismiss?.();
+      entry.onHide?.();
+    }
+    autoDismissedRef.current = false;
     showNext();
-  }, [showNext]);
+  }, [clearAutoDismissTimer, showNext]);
 
   const handlePress = useCallback(() => {
     const entry = currentRef.current;
     if (entry?.onPress) {
       entry.onPress();
+      clearAutoDismissTimer();
+      autoDismissedRef.current = false;
       setVisible(false);
     }
-  }, []);
+  }, [clearAutoDismissTimer]);
 
   const ref = useMemo<ToastRef>(
-    () => ({ show, dismiss, dismissAll }),
-    [show, dismiss, dismissAll]
+    () => ({
+      show,
+      success: (title, cfg, opts) => showVariant('success', title, cfg, opts),
+      error: (title, cfg, opts) => showVariant('error', title, cfg, opts),
+      info: (title, cfg, opts) => showVariant('info', title, cfg, opts),
+      warning: (title, cfg, opts) => showVariant('warning', title, cfg, opts),
+      loading: (title, cfg, opts) => showVariant('loading', title, cfg, opts),
+      update,
+      promise,
+      dismiss,
+      dismissAll,
+    }),
+    [show, showVariant, update, promise, dismiss, dismissAll]
   );
+
+  useEffect(() => {
+    _setActiveToastRef(ref);
+    return () => {
+      _setActiveToastRef(null);
+    };
+  }, [ref]);
 
   return (
     <ToastContext.Provider value={ref}>

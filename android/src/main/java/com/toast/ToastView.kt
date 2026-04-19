@@ -24,6 +24,15 @@ class ToastView(context: Context) : View(context) {
     var enableSwipeDismiss: Boolean = true
     var useDynamicIsland: Boolean = true
 
+    // Snapshot of values last handed to the overlay — used to detect
+    // mid-flight prop changes that should map to an in-place update
+    // rather than a new show cycle.
+    private var lastIcon: String = ""
+    private var lastTitle: String = ""
+    private var lastMessage: String = ""
+    private var lastDuration: Int = 3000
+    private var lastAutoDismiss: Boolean = true
+
     init {
         visibility = GONE
     }
@@ -63,6 +72,32 @@ class ToastView(context: Context) : View(context) {
         }
 
         overlay?.show(icon, toastTitle, toastMessage, duration, autoDismiss, enableSwipeDismiss, useDynamicIsland)
+        snapshotProps()
+    }
+
+    /**
+     * Called after a prop transaction completes. If content or timing props
+     * changed while the toast is visible, push an in-place update instead of
+     * restarting the show/dismiss cycle.
+     */
+    fun applyPendingUpdateIfNeeded() {
+        if (!isCurrentlyShowing) return
+        val changed = icon != lastIcon
+            || toastTitle != lastTitle
+            || toastMessage != lastMessage
+            || duration != lastDuration
+            || autoDismiss != lastAutoDismiss
+        if (!changed) return
+        overlay?.update(icon, toastTitle, toastMessage, duration, autoDismiss)
+        snapshotProps()
+    }
+
+    private fun snapshotProps() {
+        lastIcon = icon
+        lastTitle = toastTitle
+        lastMessage = toastMessage
+        lastDuration = duration
+        lastAutoDismiss = autoDismiss
     }
 
     private fun dismissToast() {

@@ -74,6 +74,39 @@ import Combine
         }
     }
 
+    /// Mutates the currently presented toast in place. Triggers a SwiftUI
+    /// re-render via `@Published var toast` without re-running the expand
+    /// animation. Resets the auto-dismiss timer so the updated content gets
+    /// its full duration from this moment.
+    @objc public func update(
+        icon: String,
+        title: String,
+        message: String,
+        duration: Int,
+        autoDismiss: Bool
+    ) {
+        guard let overlayWindow, overlayWindow.isPresented else { return }
+
+        let (primary, secondary) = iconColors(for: icon)
+        overlayWindow.toast = Toast(
+            symbol: icon,
+            symbolFont: .system(size: 35),
+            symbolForegroundStyle: (primary, secondary),
+            title: title,
+            message: message
+        )
+
+        cancelTimer()
+        if autoDismiss && duration > 0 {
+            let interval = TimeInterval(duration) / 1000.0
+            autoDismissTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.dismiss()
+                }
+            }
+        }
+    }
+
     @objc public func dismiss() {
         cancelTimer()
 
