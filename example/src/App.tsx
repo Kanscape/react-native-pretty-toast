@@ -11,7 +11,42 @@ import {
   Platform,
   useColorScheme,
 } from 'react-native';
-import { ToastProvider, useToast } from 'react-native-pretty-toast';
+import {
+  toast as imperativeToast,
+  ToastProvider,
+  useToast,
+} from 'react-native-pretty-toast';
+
+// Imperative API demo: these helpers live outside the component tree
+// and can be called from anywhere (API clients, redux middleware, utils).
+async function simulateApiCall() {
+  const id = imperativeToast.show({
+    icon: 'arrow.triangle.2.circlepath',
+    title: 'Syncing...',
+    message: 'Fetching latest data',
+    duration: 0,
+    autoDismiss: false,
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  imperativeToast.dismiss(id);
+  imperativeToast.show({
+    icon: 'checkmark.seal.fill',
+    title: 'Sync complete',
+    message: 'All data is up to date',
+    duration: 2500,
+  });
+}
+
+function reportErrorFromModule(err: Error) {
+  imperativeToast.show({
+    icon: 'exclamationmark.triangle.fill',
+    title: 'Unexpected error',
+    message: err.message,
+    duration: 4000,
+  });
+}
 
 function makeColors(isDark: boolean) {
   if (isDark) {
@@ -337,6 +372,33 @@ function HomeScreen() {
               message: '',
               duration: 2000,
             });
+          },
+        },
+      ],
+    },
+    {
+      title: 'Imperative API',
+      footer:
+        'Triggered from module-level functions — no hook, no component context.',
+      rows: [
+        {
+          id: 'imperative-api-call',
+          title: 'Simulate API Call',
+          subtitle: 'Fires from an async function',
+          glyph: '↻',
+          tint: colors.systemBlue,
+          onPress: () => {
+            simulateApiCall();
+          },
+        },
+        {
+          id: 'imperative-error',
+          title: 'Report Error',
+          subtitle: 'Fires from a plain module helper',
+          glyph: '!',
+          tint: colors.systemRed,
+          onPress: () => {
+            reportErrorFromModule(new Error('Network request failed'));
           },
         },
       ],
