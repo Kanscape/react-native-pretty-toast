@@ -20,6 +20,12 @@ class PassThroughWindow: UIWindow, ObservableObject {
     @Published var backdropTint: BackdropTint = .gray
 
     private var backdropTimer: Timer?
+    /// Debounce state for `backdropTint`. The luminance sample can cross the
+    /// flip point briefly during scroll/transition animations; we only commit
+    /// a new tint once the same value has been observed for ≥250ms so the
+    /// stroke doesn't flicker on transient backdrop changes.
+    private var pendingTint: BackdropTint?
+    private var pendingTintSince: CFAbsoluteTime = 0
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard let hitView = super.hitTest(point, with: event),
@@ -74,6 +80,7 @@ class PassThroughWindow: UIWindow, ObservableObject {
     func stopBackdropSampling() {
         backdropTimer?.invalidate()
         backdropTimer = nil
+        pendingTint = nil
     }
 
     deinit {
@@ -146,8 +153,21 @@ class PassThroughWindow: UIWindow, ObservableObject {
             tint = avgLuma < 0.050 ? .colored : .gray
         }
 
-        if tint != backdropTint {
+        if tint == backdropTint {
+            pendingTint = nil
+            return
+        }
+
+        let now = CFAbsoluteTimeGetCurrent()
+        if pendingTint != tint {
+            pendingTint = tint
+            pendingTintSince = now
+            return
+        }
+
+        if now - pendingTintSince >= 0.25 {
             backdropTint = tint
+            pendingTint = nil
         }
     }
 }

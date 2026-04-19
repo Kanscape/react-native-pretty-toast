@@ -16,6 +16,11 @@ struct PrettyToastView: View {
             let dynamicIslandWidth: CGFloat = 120
             let dynamicIslandHeight: CGFloat = 36
             let topOffset: CGFloat = 11 + max((safeArea.top - 59), 0)
+            // Nudge the expanded pill up slightly so the centered stroke at the
+            // pill's top edge clears the DI's top line instead of sitting
+            // half-behind it. The collapsed frame still morphs from `topOffset`
+            // so the DI shape alignment is preserved.
+            let expandedTopOffset: CGFloat = topOffset - 0.5
 
             let expandedWidth = size.width - 20
             // Base height from original. Add extra if content overflows.
@@ -59,7 +64,7 @@ struct PrettyToastView: View {
                     // Use offset AFTER gestures — for DI it's fine since the offset
                     // is small and the pill is near the top. For non-DI, we use padding
                     // on the ZStack instead so the layout position matches.
-                    .offset(y: haveDynamicIsland ? topOffset : 0)
+                    .offset(y: haveDynamicIsland ? (isExpanded ? expandedTopOffset : topOffset) : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.top, haveDynamicIsland ? 0 : (isExpanded ? safeArea.top + 10 : 0))
@@ -223,7 +228,7 @@ struct PrettyToastView: View {
 
     @ViewBuilder
     private func strokeLayer<S: Shape>(shape: S, color: Color, alpha: Double, visible: Bool) -> some View {
-        let stroke = shape.stroke(color.opacity(alpha), lineWidth: 2)
+        let stroke = shape.stroke(color.opacity(alpha), lineWidth: 1.5)
         if #available(iOS 17, *) {
             stroke.animation(.easeInOut(duration: 0.3)) { view in
                 view.opacity(visible ? 1 : 0)
