@@ -67,7 +67,7 @@ struct PrettyToastView: View {
                     .offset(y: haveDynamicIsland ? (isExpanded ? expandedTopOffset : topOffset) : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, haveDynamicIsland ? 0 : (isExpanded ? safeArea.top + 10 : 0))
+            .padding(.top, haveDynamicIsland ? 0 : (isExpanded ? max(safeArea.top, 10) : 0))
             .ignoresSafeArea()
             .animation(.bouncy(duration: 0.3, extraBounce: 0), value: isExpanded)
         }
