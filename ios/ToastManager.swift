@@ -51,6 +51,7 @@ import Combine
         let present = { [weak self] in
             guard let self, let overlayWindow = self.overlayWindow else { return }
             overlayWindow.isPresented = true
+            overlayWindow.startBackdropSampling()
             self.cancelStatusBarRestore()
             self.hostingController?.isStatusBarHidden = true
             overlayWindow.makeKey()
@@ -80,6 +81,7 @@ import Combine
         isDismissing = true
 
         overlayWindow.isPresented = false
+        overlayWindow.stopBackdropSampling()
         scheduleStatusBarRestore()
         restoreKeyWindow()
 
@@ -131,6 +133,7 @@ import Combine
                 // Dismissed by swipe gesture — not by our dismiss() method
                 self.isDismissing = true
                 self.cancelTimer()
+                self.overlayWindow?.stopBackdropSampling()
                 self.scheduleStatusBarRestore()
                 self.restoreKeyWindow()
 

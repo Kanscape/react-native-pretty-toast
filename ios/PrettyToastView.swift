@@ -29,7 +29,7 @@ struct PrettyToastView: View {
             let scaleY: CGFloat = isExpanded ? 1 : (dynamicIslandHeight / expandedHeight)
 
             ZStack {
-                toastBackground
+                toastBackground()
                     .overlay {
                         ToastContent(haveDynamicIsland, expandedWidth: expandedWidth)
                             .frame(width: expandedWidth, height: expandedHeight)
@@ -138,14 +138,70 @@ struct PrettyToastView: View {
         }
     }
 
+    // MARK: - Pill background
+    //
+    // Pure black capsule with a dim outline. Mirrors Apple's DI: below
+    // ~#0E luminance the outline takes the toast's accent colour; above
+    // that point a very faint neutral outline stays visible on any
+    // backdrop. `window.backdropTint` is driven by `PassThroughWindow`'s
+    // luminance sampler. Two stroke layers crossfade independently so the
+    // colour swap is a soft transition, not a pop.
+
+    private func toastBackground() -> some View {
+        let accent = window.toast?.accentColor ?? .white
+        let tint = window.backdropTint
+        return Group {
+            if #available(iOS 26, *) {
+                makeStrokeBackground(
+                    shape: ConcentricRectangle(
+                        corners: .concentric(minimum: .fixed(30)),
+                        isUniform: true
+                    ),
+                    accent: accent,
+                    tint: tint
+                )
+            } else {
+                makeStrokeBackground(
+                    shape: RoundedRectangle(cornerRadius: 30, style: .continuous),
+                    accent: accent,
+                    tint: tint
+                )
+            }
+        }
+    }
+
+    private func makeStrokeBackground<S: Shape>(shape: S, accent: Color, tint: BackdropTint) -> some View {
+        // Two stacked stroke layers, each with its own scoped opacity
+        // animation. Using the iOS 17 closure overload scopes the easeInOut
+        // to just the opacity transform; frame changes fall through to the
+        // ambient bouncy animation so the stroke never drifts away from the
+        // pill geometry during expand/collapse.
+        shape
+            .fill(.black)
+            .overlay {
+                ZStack {
+                    // Accent layer ~20% alpha reads well on very dark
+                    // backdrops. The neutral gray layer is pinned much
+                    // lower (~6%) so it just barely separates the pill
+                    // from a near-black backdrop and fades into nothing on
+                    // lighter ones — matching Apple's restrained DI look.
+                    strokeLayer(shape: shape, color: accent, alpha: 0.2, visible: isExpanded && tint == .colored)
+                    strokeLayer(shape: shape, color: .white, alpha: 0.06, visible: isExpanded && tint == .gray)
+                }
+            }
+    }
+
     @ViewBuilder
-    var toastBackground: some View {
-        if #available(iOS 26, *) {
-            ConcentricRectangle(corners: .concentric(minimum: .fixed(30)), isUniform: true)
-                .fill(.black)
+    private func strokeLayer<S: Shape>(shape: S, color: Color, alpha: Double, visible: Bool) -> some View {
+        let stroke = shape.stroke(color.opacity(alpha), lineWidth: 2)
+        if #available(iOS 17, *) {
+            stroke.animation(.easeInOut(duration: 0.3)) { view in
+                view.opacity(visible ? 1 : 0)
+            }
         } else {
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(.black)
+            stroke
+                .opacity(visible ? 1 : 0)
+                .animation(.easeInOut(duration: 0.3), value: visible)
         }
     }
 
