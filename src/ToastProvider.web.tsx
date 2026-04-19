@@ -100,6 +100,7 @@ export function ToastProvider({
       setCurrent(entry);
       setVisible(true);
       armAutoDismissTimer(entry);
+      announceToast(entry);
       entry.onShow?.();
     },
     [armAutoDismissTimer]
@@ -272,6 +273,16 @@ export function ToastProvider({
     }
   }, [clearAutoDismissTimer]);
 
+  const handleActionPress = useCallback(() => {
+    const entry = currentRef.current;
+    if (entry?.action) {
+      entry.action.onPress();
+      clearAutoDismissTimer();
+      autoDismissedRef.current = false;
+      setVisible(false);
+    }
+  }, [clearAutoDismissTimer]);
+
   const ref = useMemo<ToastRef>(
     () => ({
       show,
@@ -295,21 +306,72 @@ export function ToastProvider({
     };
   }, [ref]);
 
+  const iconUri = resolveIconUri(current?.iconSource);
+
   return (
     <ToastContext.Provider value={ref}>
       {children}
       <WebToastView
         visible={visible}
         icon={current?.icon ?? ''}
+        iconUri={iconUri}
         title={current?.title ?? ''}
         message={current?.message ?? ''}
         duration={current?.duration ?? 3000}
         autoDismiss={current?.autoDismiss ?? true}
         enableSwipeDismiss={current?.enableSwipeDismiss ?? true}
         useDynamicIsland={useDynamicIsland}
+        accentColor={current?.accentColor as string | undefined}
+        strokeColor={current?.strokeColor as string | undefined}
+        disableBackdropSampling={current?.disableBackdropSampling ?? false}
+        actionLabel={current?.action?.label}
         onToastDismiss={handleDismiss}
         onToastPress={current?.onPress ? handlePress : undefined}
+        onToastActionPress={current?.action ? handleActionPress : undefined}
       />
     </ToastContext.Provider>
   );
+}
+
+function resolveIconUri(
+  source: ToastConfig['iconSource'] | undefined
+): string | undefined {
+  if (!source) return undefined;
+  if (typeof source === 'number') return undefined;
+  if (Array.isArray(source)) return source[0]?.uri;
+  if (typeof source === 'object' && 'uri' in source && source.uri) {
+    return source.uri;
+  }
+  return undefined;
+}
+
+function announceToast(entry: ToastConfig): void {
+  if (typeof document === 'undefined') return;
+  const message =
+    entry.accessibilityAnnouncement !== undefined
+      ? entry.accessibilityAnnouncement
+      : [entry.title, entry.message].filter(Boolean).join('. ');
+  if (!message) return;
+  // aria-live on the pill already announces it — this is a belt-and-braces
+  // live-region fallback for screen readers that miss transient nodes.
+  const live = document.getElementById('rnpt-a11y-announce');
+  const el = live ?? createAnnouncer();
+  el.textContent = '';
+  requestAnimationFrame(() => {
+    el.textContent = message;
+  });
+}
+
+function createAnnouncer(): HTMLElement {
+  const el = document.createElement('div');
+  el.id = 'rnpt-a11y-announce';
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
+  el.style.position = 'absolute';
+  el.style.width = '1px';
+  el.style.height = '1px';
+  el.style.overflow = 'hidden';
+  el.style.clip = 'rect(0 0 0 0)';
+  document.body.appendChild(el);
+  return el;
 }

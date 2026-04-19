@@ -7,14 +7,20 @@ import type { SFSymbolName } from './types';
 export interface WebToastViewProps {
   visible: boolean;
   icon?: SFSymbolName;
+  iconUri?: string;
   title?: string;
   message?: string;
   duration?: number;
   autoDismiss?: boolean;
   enableSwipeDismiss?: boolean;
   useDynamicIsland?: boolean;
+  accentColor?: string;
+  strokeColor?: string;
+  disableBackdropSampling?: boolean;
+  actionLabel?: string;
   onToastDismiss?: () => void;
   onToastPress?: () => void;
+  onToastActionPress?: () => void;
 }
 
 const ICON_MAP: Array<[string, { glyph: string; color: string }]> = [
@@ -37,14 +43,6 @@ function getIcon(symbol: string): { glyph: string; color: string } {
   return { glyph: '•', color: '#8E8E93' };
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const v = hex.replace('#', '');
-  const r = parseInt(v.slice(0, 2), 16);
-  const g = parseInt(v.slice(2, 4), 16);
-  const b = parseInt(v.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 const ENTER_MS = 300;
 const EXIT_MS = 250;
 const ENTER_EASING = 'cubic-bezier(0.22, 1.2, 0.36, 1)';
@@ -54,13 +52,19 @@ const SWIPE_THRESHOLD = -40;
 export default function WebToastView({
   visible,
   icon = '',
+  iconUri,
   title = '',
   message = '',
   duration = 3000,
   autoDismiss = true,
   enableSwipeDismiss = true,
+  accentColor,
+  strokeColor,
+  disableBackdropSampling = false,
+  actionLabel,
   onToastDismiss,
   onToastPress,
+  onToastActionPress,
 }: WebToastViewProps) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -158,7 +162,16 @@ export default function WebToastView({
 
   if (typeof document === 'undefined' || !mounted) return null;
 
-  const { glyph, color } = getIcon(icon);
+  const defaultIcon = getIcon(icon);
+  const color = accentColor ?? defaultIcon.color;
+  const glyph = defaultIcon.glyph;
+  const outline = strokeColor
+    ? strokeColor
+    : disableBackdropSampling
+      ? 'rgba(255,255,255,0.06)'
+      : isDark
+        ? `color-mix(in srgb, ${color} 20%, transparent)`
+        : undefined;
 
   const isExiting = !visible || dismissing;
 
@@ -237,7 +250,7 @@ export default function WebToastView({
         width: 'min(360px, calc(100vw - 20px))',
         boxSizing: 'border-box',
         background: '#000',
-        border: isDark ? `2px solid ${hexToRgba(color, 0.2)}` : 'none',
+        border: outline ? `2px solid ${outline}` : 'none',
         borderRadius: 30,
         padding: '14px 20px',
         display: 'flex',
@@ -263,7 +276,15 @@ export default function WebToastView({
           color,
         }}
       >
-        {glyph}
+        {iconUri ? (
+          <img
+            src={iconUri}
+            alt=""
+            style={{ width: 40, height: 40, objectFit: 'contain' }}
+          />
+        ) : (
+          glyph
+        )}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         {title ? (
@@ -293,6 +314,29 @@ export default function WebToastView({
           </div>
         ) : null}
       </div>
+      {actionLabel && onToastActionPress ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToastActionPress();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            flexShrink: 0,
+            marginLeft: 4,
+            padding: '6px 12px',
+            background: 'rgba(255,255,255,0.12)',
+            color: typeof color === 'string' ? color : '#fff',
+            border: 'none',
+            borderRadius: 999,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          {actionLabel}
+        </button>
+      ) : null}
     </div>
   );
 
