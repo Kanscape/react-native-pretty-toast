@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { StyleSheet } from 'react-native';
 import ToastViewNativeComponent from './ToastViewNativeComponent';
+import { _setActiveToastRef } from './toast';
 import type { ToastConfig, ToastRef } from './types';
 
 export const ToastContext = createContext<ToastRef | null>(null);
@@ -130,6 +131,13 @@ export function ToastProvider({
     () => ({ show, dismiss, dismissAll }),
     [show, dismiss, dismissAll]
   );
+
+  useEffect(() => {
+    _setActiveToastRef(ref);
+    return () => {
+      _setActiveToastRef(null);
+    };
+  }, [ref]);
 
   return (
     <ToastContext.Provider value={ref}>

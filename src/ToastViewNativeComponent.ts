@@ -1,4 +1,4 @@
-import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
+import { codegenNativeComponent } from 'react-native';
 import type { ViewProps } from 'react-native';
 import type {
   BubblingEventHandler,
@@ -7,6 +7,7 @@ import type {
 
 export interface NativeProps extends ViewProps {
   visible: boolean;
+  /** SF Symbol name. See https://developer.apple.com/sf-symbols/ */
   icon?: string;
   title?: string;
   message?: string;

@@ -46,12 +46,11 @@ This is required for the toast to properly hide the status bar when displayed. W
 
 ## Usage
 
-Wrap your app with `ToastProvider`, then use the `useToast` hook anywhere:
+Wrap your app with `ToastProvider` once at the root:
 
 ```tsx
-import { ToastProvider, useToast } from 'react-native-pretty-toast';
+import { ToastProvider } from 'react-native-pretty-toast';
 
-// Root of your app
 export default function App() {
   return (
     <ToastProvider>
@@ -59,6 +58,28 @@ export default function App() {
     </ToastProvider>
   );
 }
+```
+
+You can then trigger toasts two ways — pick whichever fits the call site.
+
+### 1. Imperative API (call from anywhere)
+
+Import `toast` directly. Works in non-component code: API error handlers, redux middleware, utility modules, etc.
+
+```tsx
+import { toast } from 'react-native-pretty-toast';
+
+toast.show({
+  icon: 'checkmark.seal.fill',
+  title: 'Transaction Success!',
+  message: 'Your payment has been processed',
+});
+```
+
+### 2. `useToast` hook (inside components)
+
+```tsx
+import { useToast } from 'react-native-pretty-toast';
 
 function HomeScreen() {
   const toast = useToast();
@@ -66,18 +87,20 @@ function HomeScreen() {
   return (
     <Button
       title="Show Toast"
-      onPress={() => {
+      onPress={() =>
         toast.show({
           icon: 'checkmark.seal.fill',
           title: 'Transaction Success!',
           message: 'Your payment has been processed',
           duration: 3000,
-        });
-      }}
+        })
+      }
     />
   );
 }
 ```
+
+Both share the same queue and state — calls from either entry point behave identically.
 
 ## API
 
@@ -88,7 +111,7 @@ Shows a toast notification. Returns a toast `id` string.
 ```ts
 interface ToastConfig {
   id?: string;               // Auto-generated if omitted
-  icon?: string;             // SF Symbol name (e.g. 'checkmark.seal.fill')
+  icon?: SFSymbolName;       // SF Symbol name (e.g. 'checkmark.seal.fill')
   title?: string;            // Bold title text
   message?: string;          // Subtitle text
   duration?: number;         // Auto-dismiss delay in ms (default: 3000, 0 = no auto-dismiss)
@@ -111,7 +134,7 @@ Multiple `toast.show()` calls are queued. Each toast is displayed after the prev
 
 ## SF Symbol Icons
 
-The `icon` prop accepts any [SF Symbol](https://developer.apple.com/sf-symbols/) name. Icon tint color is automatically determined:
+The `icon` prop accepts any [SF Symbol](https://developer.apple.com/sf-symbols/) name. Browse the full catalog in Apple's SF Symbols app or online at **[sfsymbols.com](https://sfsymbols.com)**. Icon tint color is automatically determined:
 
 | Symbol contains | Color |
 |----------------|-------|

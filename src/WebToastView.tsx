@@ -2,10 +2,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
+import type { SFSymbolName } from './types';
 
 export interface WebToastViewProps {
   visible: boolean;
-  icon?: string;
+  icon?: SFSymbolName;
   title?: string;
   message?: string;
   duration?: number;
