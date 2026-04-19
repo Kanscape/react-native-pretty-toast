@@ -77,10 +77,7 @@ struct PrettyToastView: View {
                 }
 
                 HStack(spacing: 10) {
-                    Image(systemName: toast.symbol)
-                        .font(toast.symbolFont)
-                        .foregroundStyle(toast.symbolForegroundStyle.0, toast.symbolForegroundStyle.1)
-                        .modifier(WiggleModifier(isExpanded: isExpanded))
+                    ToastIconView(toast: toast, isExpanded: isExpanded)
                         .frame(width: 50)
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -96,6 +93,21 @@ struct PrettyToastView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if let label = toast.actionLabel, !label.isEmpty {
+                        Button(action: { window.actionTapped = true }) {
+                            Text(label)
+                                .font(.footnote)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(toast.accentColor)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule().fill(Color.white.opacity(0.12))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .padding(.horizontal, 20)
@@ -149,7 +161,11 @@ struct PrettyToastView: View {
 
     private func toastBackground() -> some View {
         let accent = window.toast?.accentColor ?? .white
-        let tint = window.backdropTint
+        let strokeOverride = window.toast?.strokeOverride
+        let disableSampling = window.toast?.disableBackdropSampling ?? false
+        // If sampling is disabled, freeze the tint to gray so the static
+        // neutral stroke layer is the one rendered.
+        let tint: BackdropTint = disableSampling ? .gray : window.backdropTint
         return Group {
             if #available(iOS 26, *) {
                 makeStrokeBackground(
@@ -158,19 +174,26 @@ struct PrettyToastView: View {
                         isUniform: true
                     ),
                     accent: accent,
+                    strokeOverride: strokeOverride,
                     tint: tint
                 )
             } else {
                 makeStrokeBackground(
                     shape: RoundedRectangle(cornerRadius: 30, style: .continuous),
                     accent: accent,
+                    strokeOverride: strokeOverride,
                     tint: tint
                 )
             }
         }
     }
 
-    private func makeStrokeBackground<S: Shape>(shape: S, accent: Color, tint: BackdropTint) -> some View {
+    private func makeStrokeBackground<S: Shape>(
+        shape: S,
+        accent: Color,
+        strokeOverride: Color?,
+        tint: BackdropTint
+    ) -> some View {
         // Two stacked stroke layers, each with its own scoped opacity
         // animation. Using the iOS 17 closure overload scopes the easeInOut
         // to just the opacity transform; frame changes fall through to the
@@ -180,13 +203,20 @@ struct PrettyToastView: View {
             .fill(.black)
             .overlay {
                 ZStack {
-                    // Accent layer ~20% alpha reads well on very dark
-                    // backdrops. The neutral gray layer is pinned much
-                    // lower (~6%) so it just barely separates the pill
-                    // from a near-black backdrop and fades into nothing on
-                    // lighter ones — matching Apple's restrained DI look.
-                    strokeLayer(shape: shape, color: accent, alpha: 0.2, visible: isExpanded && tint == .colored)
-                    strokeLayer(shape: shape, color: .white, alpha: 0.06, visible: isExpanded && tint == .gray)
+                    if let override = strokeOverride {
+                        // Explicit stroke override — paint a single fixed
+                        // layer at full alpha. No crossfade; the caller owns
+                        // the color, including its alpha channel.
+                        strokeLayer(shape: shape, color: override, alpha: 1.0, visible: isExpanded)
+                    } else {
+                        // Accent layer ~20% alpha reads well on very dark
+                        // backdrops. The neutral gray layer is pinned much
+                        // lower (~6%) so it just barely separates the pill
+                        // from a near-black backdrop and fades into nothing on
+                        // lighter ones — matching Apple's restrained DI look.
+                        strokeLayer(shape: shape, color: accent, alpha: 0.2, visible: isExpanded && tint == .colored)
+                        strokeLayer(shape: shape, color: .white, alpha: 0.06, visible: isExpanded && tint == .gray)
+                    }
                 }
             }
     }
@@ -207,6 +237,32 @@ struct PrettyToastView: View {
 
     var isExpanded: Bool {
         window.isPresented
+    }
+}
+
+// MARK: - Icon view
+//
+// Renders either the resolved custom UIImage (when a consumer passed an
+// `iconSource`) or the SF Symbol fallback. The symbol path keeps the wiggle
+// effect on expand; the custom image path uses plain content-fit scaling.
+
+struct ToastIconView: View {
+    let toast: Toast
+    let isExpanded: Bool
+
+    var body: some View {
+        if let image = toast.customIcon {
+            Image(uiImage: image)
+                .resizable()
+                .renderingMode(.original)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 35, height: 35)
+        } else {
+            Image(systemName: toast.symbol)
+                .font(toast.symbolFont)
+                .foregroundStyle(toast.symbolForegroundStyle.0, toast.symbolForegroundStyle.1)
+                .modifier(WiggleModifier(isExpanded: isExpanded))
+        }
     }
 }
 

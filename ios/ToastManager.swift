@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 /// Bridge between the Fabric component (ObjC++) and the SwiftUI toast views.
 @objc public class ToastManager: NSObject {
@@ -8,6 +9,7 @@ import Combine
     private var autoDismissTimer: Timer?
     private var dismissCancellable: AnyCancellable?
     private var tapCancellable: AnyCancellable?
+    private var actionCancellable: AnyCancellable?
     /// Prevents double-firing onDismiss when programmatic dismiss
     /// also triggers the Combine subscription.
     private var isDismissing = false
@@ -15,18 +17,27 @@ import Combine
     /// bar doesn't reappear mid-animation. Cancelled by a follow-up show() so
     /// queued toasts don't flash the status bar between them.
     private var statusBarRestoreWorkItem: DispatchWorkItem?
+    /// Image loads triggered while a URI prop is set. Kept so rapid updates
+    /// can cancel prior in-flight fetches.
+    private var imageLoadTask: URLSessionDataTask?
 
     @objc public var onDismiss: (() -> Void)?
     @objc public var onPress: (() -> Void)?
+    @objc public var onActionPress: (() -> Void)?
 
     @objc public func show(
         icon: String,
+        iconUri: String,
         title: String,
         message: String,
         duration: Int,
         autoDismiss: Bool,
         enableSwipeDismiss: Bool,
-        useDynamicIsland: Bool
+        useDynamicIsland: Bool,
+        accentColor: UIColor?,
+        strokeColor: UIColor?,
+        disableBackdropSampling: Bool,
+        actionLabel: String
     ) {
         let isFirstShow = overlayWindow == nil
         ensureOverlayWindow()
@@ -34,24 +45,36 @@ import Combine
         guard let overlayWindow else { return }
 
         let (primary, secondary) = iconColors(for: icon)
+        let accent = accentColor.map { Color($0) }
+        let stroke = strokeColor.map { Color($0) }
 
         let toast = Toast(
             symbol: icon,
             symbolFont: .system(size: 35),
-            symbolForegroundStyle: (primary, secondary),
+            symbolForegroundStyle: (primary, accent ?? secondary),
             title: title,
-            message: message
+            message: message,
+            customIcon: nil,
+            accentOverride: accent,
+            strokeOverride: stroke,
+            disableBackdropSampling: disableBackdropSampling,
+            actionLabel: actionLabel.isEmpty ? nil : actionLabel
         )
 
         overlayWindow.toast = toast
         overlayWindow.useDynamicIsland = useDynamicIsland
         overlayWindow.wasTapped = false
+        overlayWindow.actionTapped = false
         isDismissing = false
+
+        loadCustomIconIfNeeded(uri: iconUri)
 
         let present = { [weak self] in
             guard let self, let overlayWindow = self.overlayWindow else { return }
             overlayWindow.isPresented = true
-            overlayWindow.startBackdropSampling()
+            if !disableBackdropSampling {
+                overlayWindow.startBackdropSampling()
+            }
             self.cancelStatusBarRestore()
             self.hostingController?.isStatusBarHidden = true
             overlayWindow.makeKey()
@@ -80,21 +103,45 @@ import Combine
     /// its full duration from this moment.
     @objc public func update(
         icon: String,
+        iconUri: String,
         title: String,
         message: String,
         duration: Int,
-        autoDismiss: Bool
+        autoDismiss: Bool,
+        accentColor: UIColor?,
+        strokeColor: UIColor?,
+        disableBackdropSampling: Bool,
+        actionLabel: String
     ) {
         guard let overlayWindow, overlayWindow.isPresented else { return }
 
         let (primary, secondary) = iconColors(for: icon)
+        let accent = accentColor.map { Color($0) }
+        let stroke = strokeColor.map { Color($0) }
+
+        // Preserve the previously resolved customIcon unless the URI changed
+        // (loadCustomIconIfNeeded handles the swap below).
+        let previous = overlayWindow.toast
         overlayWindow.toast = Toast(
             symbol: icon,
             symbolFont: .system(size: 35),
-            symbolForegroundStyle: (primary, secondary),
+            symbolForegroundStyle: (primary, accent ?? secondary),
             title: title,
-            message: message
+            message: message,
+            customIcon: previous?.customIcon,
+            accentOverride: accent,
+            strokeOverride: stroke,
+            disableBackdropSampling: disableBackdropSampling,
+            actionLabel: actionLabel.isEmpty ? nil : actionLabel
         )
+
+        loadCustomIconIfNeeded(uri: iconUri)
+
+        if disableBackdropSampling {
+            overlayWindow.stopBackdropSampling()
+        } else if overlayWindow.isPresented {
+            overlayWindow.startBackdropSampling()
+        }
 
         cancelTimer()
         if autoDismiss && duration > 0 {
@@ -115,6 +162,8 @@ import Combine
 
         overlayWindow.isPresented = false
         overlayWindow.stopBackdropSampling()
+        imageLoadTask?.cancel()
+        imageLoadTask = nil
         scheduleStatusBarRestore()
         restoreKeyWindow()
 
@@ -152,6 +201,7 @@ import Combine
 
         observeDismiss()
         observeTap()
+        observeAction()
     }
 
     /// Observe isPresented going false from swipe gesture (not from our dismiss() call).
@@ -190,7 +240,56 @@ import Combine
             }
     }
 
+    private func observeAction() {
+        guard let overlayWindow else { return }
+
+        actionCancellable = overlayWindow.$actionTapped
+            .dropFirst()
+            .filter { $0 }
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.overlayWindow?.actionTapped = false
+                self.onActionPress?()
+            }
+    }
+
     // MARK: - Helpers
+
+    private func loadCustomIconIfNeeded(uri: String) {
+        imageLoadTask?.cancel()
+        imageLoadTask = nil
+
+        if uri.isEmpty {
+            overlayWindow?.toast?.customIcon = nil
+            return
+        }
+
+        // data:, file:, and bundled asset URIs load synchronously.
+        if let url = URL(string: uri),
+           url.isFileURL,
+           let image = UIImage(contentsOfFile: url.path) {
+            overlayWindow?.toast?.customIcon = image
+            // Reassign to trigger @Published.
+            if var t = overlayWindow?.toast {
+                t.customIcon = image
+                overlayWindow?.toast = t
+            }
+            return
+        }
+
+        guard let url = URL(string: uri) else { return }
+
+        imageLoadTask = URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let self, let data, let image = UIImage(data: data) else { return }
+            DispatchQueue.main.async {
+                if var t = self.overlayWindow?.toast {
+                    t.customIcon = image
+                    self.overlayWindow?.toast = t
+                }
+            }
+        }
+        imageLoadTask?.resume()
+    }
 
     private func restoreKeyWindow() {
         UIApplication.shared.connectedScenes
@@ -228,13 +327,17 @@ import Combine
         let window = overlayWindow
         let dismissCancel = dismissCancellable
         let tapCancel = tapCancellable
+        let actionCancel = actionCancellable
         let timer = autoDismissTimer
         let workItem = statusBarRestoreWorkItem
+        let loadTask = imageLoadTask
         DispatchQueue.main.async {
             timer?.invalidate()
             workItem?.cancel()
             dismissCancel?.cancel()
             tapCancel?.cancel()
+            actionCancel?.cancel()
+            loadTask?.cancel()
             window?.stopBackdropSampling()
             // Break PassThroughWindow → rootViewController → PrettyToastView →
             // @ObservedObject window so the window can actually deallocate.

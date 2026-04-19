@@ -24,8 +24,13 @@ using namespace facebook::react;
     BOOL _enableSwipeDismiss;
     BOOL _useDynamicIsland;
     NSString *_icon;
+    NSString *_iconUri;
     NSString *_title;
     NSString *_message;
+    NSString *_actionLabel;
+    UIColor *_accentColor;
+    UIColor *_strokeColor;
+    BOOL _disableBackdropSampling;
     ToastManager *_manager;
     BOOL _isCurrentlyShowing;
 }
@@ -47,8 +52,13 @@ using namespace facebook::react;
         _enableSwipeDismiss = YES;
         _useDynamicIsland = YES;
         _icon = @"";
+        _iconUri = @"";
         _title = @"";
         _message = @"";
+        _actionLabel = @"";
+        _accentColor = nil;
+        _strokeColor = nil;
+        _disableBackdropSampling = NO;
         _isCurrentlyShowing = NO;
 
         _manager = [[ToastManager alloc] init];
@@ -69,6 +79,13 @@ using namespace facebook::react;
             }
         };
 
+        _manager.onActionPress = ^{
+            __strong ToastView *strongSelf = weakSelf;
+            if (strongSelf) {
+                [strongSelf emitActionPressEvent];
+            }
+        };
+
         self.hidden = YES;
     }
     return self;
@@ -80,19 +97,29 @@ using namespace facebook::react;
     const auto &newViewProps = *std::static_pointer_cast<ToastViewProps const>(props);
 
     BOOL textChanged = oldViewProps.icon != newViewProps.icon
+                    || oldViewProps.iconUri != newViewProps.iconUri
                     || oldViewProps.title != newViewProps.title
-                    || oldViewProps.message != newViewProps.message;
+                    || oldViewProps.message != newViewProps.message
+                    || oldViewProps.actionLabel != newViewProps.actionLabel;
     BOOL timingChanged = oldViewProps.duration != newViewProps.duration
                       || oldViewProps.autoDismiss != newViewProps.autoDismiss;
+    BOOL styleChanged = oldViewProps.accentColor != newViewProps.accentColor
+                     || oldViewProps.strokeColor != newViewProps.strokeColor
+                     || oldViewProps.disableBackdropSampling != newViewProps.disableBackdropSampling;
 
     _visible = newViewProps.visible;
     _duration = newViewProps.duration;
     _autoDismiss = newViewProps.autoDismiss;
     _enableSwipeDismiss = newViewProps.enableSwipeDismiss;
     _useDynamicIsland = newViewProps.useDynamicIsland;
+    _disableBackdropSampling = newViewProps.disableBackdropSampling;
     _icon = [NSString stringWithUTF8String:newViewProps.icon.c_str()];
+    _iconUri = [NSString stringWithUTF8String:newViewProps.iconUri.c_str()];
     _title = [NSString stringWithUTF8String:newViewProps.title.c_str()];
     _message = [NSString stringWithUTF8String:newViewProps.message.c_str()];
+    _actionLabel = [NSString stringWithUTF8String:newViewProps.actionLabel.c_str()];
+    _accentColor = RCTUIColorFromSharedColor(newViewProps.accentColor);
+    _strokeColor = RCTUIColorFromSharedColor(newViewProps.strokeColor);
 
     [super updateProps:props oldProps:oldProps];
 
@@ -102,15 +129,20 @@ using namespace facebook::react;
         } else {
             [self dismissToast];
         }
-    } else if (_isCurrentlyShowing && _visible && (textChanged || timingChanged)) {
+    } else if (_isCurrentlyShowing && _visible && (textChanged || timingChanged || styleChanged)) {
         // In-place mid-flight update. The overlay window's SwiftUI view
         // observes the Toast model, so mutating it re-renders content
         // without re-triggering the expand animation.
         [_manager updateWithIcon:_icon
+                         iconUri:_iconUri
                            title:_title
                          message:_message
                         duration:_duration
-                     autoDismiss:_autoDismiss];
+                     autoDismiss:_autoDismiss
+                     accentColor:_accentColor
+                     strokeColor:_strokeColor
+         disableBackdropSampling:_disableBackdropSampling
+                     actionLabel:_actionLabel];
     }
 }
 
@@ -120,12 +152,17 @@ using namespace facebook::react;
     _isCurrentlyShowing = YES;
 
     [_manager showWithIcon:_icon
+                   iconUri:_iconUri
                      title:_title
                    message:_message
                   duration:_duration
                autoDismiss:_autoDismiss
         enableSwipeDismiss:_enableSwipeDismiss
-          useDynamicIsland:_useDynamicIsland];
+          useDynamicIsland:_useDynamicIsland
+               accentColor:_accentColor
+               strokeColor:_strokeColor
+   disableBackdropSampling:_disableBackdropSampling
+               actionLabel:_actionLabel];
 }
 
 - (void)dismissToast
@@ -148,6 +185,14 @@ using namespace facebook::react;
     if (_eventEmitter) {
         auto viewEventEmitter = std::static_pointer_cast<ToastViewEventEmitter const>(_eventEmitter);
         viewEventEmitter->onToastPress({});
+    }
+}
+
+- (void)emitActionPressEvent
+{
+    if (_eventEmitter) {
+        auto viewEventEmitter = std::static_pointer_cast<ToastViewEventEmitter const>(_eventEmitter);
+        viewEventEmitter->onToastActionPress({});
     }
 }
 

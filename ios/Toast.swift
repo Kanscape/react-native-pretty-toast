@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct Toast {
     private(set) var id: String = UUID().uuidString
@@ -7,8 +8,22 @@ struct Toast {
     var symbolForegroundStyle: (Color, Color)
     var title: String
     var message: String
+    /// Optional custom icon image, resolved from an ImageSourcePropType URI.
+    /// When present, overrides the SF Symbol.
+    var customIcon: UIImage? = nil
+    /// Explicit accent override — when set, drives both the icon fill and the
+    /// pill's accent stroke, bypassing the symbol-derived default.
+    var accentOverride: Color? = nil
+    /// Explicit stroke color — when set, bypasses the backdrop sampler and
+    /// paints a fixed outline.
+    var strokeOverride: Color? = nil
+    /// Skip the backdrop luminance sampler. The outline falls back to the
+    /// neutral gray stroke on any backdrop.
+    var disableBackdropSampling: Bool = false
+    /// Label for an optional trailing action button in the pill.
+    var actionLabel: String? = nil
 
     /// SF Symbol fill color — doubles as the pill's accent tint for the
     /// Apple-style stroke we draw around the expanded pill in dark mode.
-    var accentColor: Color { symbolForegroundStyle.1 }
+    var accentColor: Color { accentOverride ?? symbolForegroundStyle.1 }
 }

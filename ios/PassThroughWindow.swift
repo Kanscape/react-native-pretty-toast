@@ -11,6 +11,7 @@ class PassThroughWindow: UIWindow, ObservableObject {
     @Published var isPresented: Bool = false
     @Published var useDynamicIsland: Bool = true
     @Published var wasTapped: Bool = false
+    @Published var actionTapped: Bool = false
 
     /// Mirrors Apple's DI: below ~#0E luminance the outline takes the
     /// accent colour; above that point a very faint neutral outline
