@@ -1,4 +1,3 @@
-import { StatusBar } from 'expo-status-bar';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -6,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  Switch,
   View,
   Image,
   Platform,
@@ -155,8 +155,9 @@ function SectionBlock({
 
 function HomeScreen() {
   const toast = useToast();
-  const isDark = useColorScheme() === 'dark';
-  console.log(`%%% isDark`, useColorScheme());
+  const systemIsDark = useColorScheme() === 'dark';
+  const [inverted, setInverted] = useState(false);
+  const isDark = inverted ? !systemIsDark : systemIsDark;
   const colors = useMemo(() => makeColors(isDark), [isDark]);
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [count, setCount] = useState(0);
@@ -397,7 +398,7 @@ function HomeScreen() {
             resizeMode="cover"
           />
         </View>
-        <Text style={styles.largeTitle}>React Native Dynamic Toast</Text>
+        <Text style={styles.largeTitle}>React Native Pretty Toast</Text>
         <Text style={styles.subtitle}>
           Dynamic Island and top-slide toast notifications.
         </Text>
@@ -412,6 +413,16 @@ function HomeScreen() {
             <Text style={styles.badgeText}>v0.1.0</Text>
           </View>
         </View>
+        <View style={styles.themeToggleRow}>
+          <Text style={styles.themeToggleLabel}>
+            {isDark ? 'Dark' : 'Light'} theme
+          </Text>
+          <Switch
+            value={inverted}
+            onValueChange={setInverted}
+            ios_backgroundColor={colors.badgeBackground}
+          />
+        </View>
       </View>
 
       {sections.map((section) => (
@@ -419,7 +430,6 @@ function HomeScreen() {
       ))}
 
       <Text style={styles.colophon}>react-native-pretty-toast</Text>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
     </ScrollView>
   );
 }
@@ -496,6 +506,19 @@ function makeStyles(c: ThemeColors) {
     badgeText: {
       fontSize: 12,
       fontWeight: '600',
+      color: c.secondaryLabel,
+      letterSpacing: -0.08,
+    },
+    themeToggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'center',
+      gap: 10,
+      marginTop: 18,
+    },
+    themeToggleLabel: {
+      fontSize: 13,
+      fontWeight: '500',
       color: c.secondaryLabel,
       letterSpacing: -0.08,
     },
