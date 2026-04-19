@@ -310,6 +310,81 @@ function HomeScreen() {
       ],
     },
     {
+      title: 'Styling',
+      footer: 'Override tint/outline per toast or supply a custom icon image.',
+      rows: [
+        {
+          id: 'accent',
+          title: 'Custom accent color',
+          subtitle: 'Overrides the icon-derived tint',
+          glyph: '●',
+          tint: colors.systemPurple,
+          onPress: () => {
+            toast.show({
+              icon: 'sparkles',
+              title: 'Purple rain',
+              message: 'accentColor drives icon + stroke',
+              accentColor: colors.systemPurple,
+            });
+          },
+        },
+        {
+          id: 'stroke',
+          title: 'Fixed stroke color',
+          subtitle: 'Static outline, sampler off',
+          glyph: '◯',
+          tint: colors.systemCyan,
+          onPress: () => {
+            toast.show({
+              icon: 'wifi',
+              title: 'Hard-coded outline',
+              message: 'strokeColor + disableBackdropSampling',
+              strokeColor: colors.systemCyan,
+              disableBackdropSampling: true,
+            });
+          },
+        },
+        {
+          id: 'custom-icon',
+          title: 'Custom icon image',
+          subtitle: 'Uses iconSource (require)',
+          glyph: 'I',
+          tint: colors.systemPink,
+          onPress: () => {
+            toast.show({
+              iconSource: require('../assets/icon.png'),
+              title: 'Custom asset',
+              message: 'iconSource wins over icon',
+            });
+          },
+        },
+      ],
+    },
+    {
+      title: 'Action button',
+      footer: 'Adds a trailing button inside the pill (sonner-style "Undo").',
+      rows: [
+        {
+          id: 'undo',
+          title: 'With Undo',
+          subtitle: 'Tap "Undo" to reverse',
+          glyph: '↩',
+          tint: colors.systemOrange,
+          onPress: () => {
+            const ok = toast.success('Deleted', {
+              message: 'Item moved to Trash',
+              duration: 5000,
+              action: {
+                label: 'Undo',
+                onPress: () => toast.info('Restored'),
+              },
+            });
+            return ok;
+          },
+        },
+      ],
+    },
+    {
       title: 'Advanced',
       footer: 'force bypasses the queue. Lifecycle callbacks log to console.',
       rows: [

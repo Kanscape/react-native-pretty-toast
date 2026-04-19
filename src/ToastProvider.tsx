@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet } from 'react-native';
+import { AccessibilityInfo, Image, StyleSheet } from 'react-native';
 import ToastViewNativeComponent from './ToastViewNativeComponent';
 import { _setActiveToastRef } from './toast';
 import type {
@@ -118,6 +118,7 @@ export function ToastProvider({
       setCurrent(entry);
       setVisible(true);
       armAutoDismissTimer(entry);
+      announceToast(entry);
       entry.onShow?.();
     },
     [armAutoDismissTimer]
@@ -309,6 +310,16 @@ export function ToastProvider({
     }
   }, [clearAutoDismissTimer]);
 
+  const handleActionPress = useCallback(() => {
+    const entry = currentRef.current;
+    if (entry?.action) {
+      entry.action.onPress();
+      clearAutoDismissTimer();
+      autoDismissedRef.current = false;
+      setVisible(false);
+    }
+  }, [clearAutoDismissTimer]);
+
   const ref = useMemo<ToastRef>(
     () => ({
       show,
@@ -332,25 +343,58 @@ export function ToastProvider({
     };
   }, [ref]);
 
+  const iconUri = resolveIconUri(current?.iconSource);
+
   return (
     <ToastContext.Provider value={ref}>
       {children}
       <ToastViewNativeComponent
         visible={visible}
         icon={current?.icon ?? ''}
+        iconUri={iconUri ?? ''}
         title={current?.title ?? ''}
         message={current?.message ?? ''}
         duration={current?.duration ?? 3000}
         autoDismiss={current?.autoDismiss ?? true}
         enableSwipeDismiss={current?.enableSwipeDismiss ?? true}
         useDynamicIsland={useDynamicIsland}
+        accentColor={current?.accentColor}
+        strokeColor={current?.strokeColor}
+        disableBackdropSampling={current?.disableBackdropSampling ?? false}
+        actionLabel={current?.action?.label ?? ''}
         onToastDismiss={handleDismiss}
         onToastShow={handleShow}
         onToastPress={handlePress}
+        onToastActionPress={handleActionPress}
         style={styles.hidden}
       />
     </ToastContext.Provider>
   );
+}
+
+function resolveIconUri(
+  source: ToastConfig['iconSource'] | undefined
+): string | undefined {
+  if (!source) return undefined;
+  try {
+    const resolved = Image.resolveAssetSource(source);
+    return resolved?.uri;
+  } catch {
+    return undefined;
+  }
+}
+
+function announceToast(entry: ToastConfig): void {
+  const message =
+    entry.accessibilityAnnouncement !== undefined
+      ? entry.accessibilityAnnouncement
+      : [entry.title, entry.message].filter(Boolean).join('. ');
+  if (!message) return;
+  try {
+    AccessibilityInfo.announceForAccessibility(message);
+  } catch {
+    // announceForAccessibility is best-effort; never throw on a11y failure.
+  }
 }
 
 const styles = StyleSheet.create({
