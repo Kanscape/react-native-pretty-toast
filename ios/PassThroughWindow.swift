@@ -63,7 +63,7 @@ class PassThroughWindow: UIWindow, ObservableObject {
         // `.default` mode, which is swapped out for `UITrackingRunLoopMode`
         // during scroll tracking, pausing the sampler and making the
         // outline appear to "stick" until the user lets go.
-        let timer = Timer(timeInterval: 0.12, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.sampleBackdrop()
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -73,6 +73,10 @@ class PassThroughWindow: UIWindow, ObservableObject {
     func stopBackdropSampling() {
         backdropTimer?.invalidate()
         backdropTimer = nil
+    }
+
+    deinit {
+        stopBackdropSampling()
     }
 
     private func sampleBackdrop() {
@@ -99,11 +103,12 @@ class PassThroughWindow: UIWindow, ObservableObject {
         ) else { return }
 
         // Sample the top strip where the pill sits. Wide enough to cover the
-        // expanded pill, tall enough to span title + message.
+        // expanded pill, tall enough to span title + message. Kept as tight as
+        // possible — `layer.render(in:)` cost scales with the source area.
         let sampleRect = CGRect(
             x: 0, y: 0,
             width: contentWindow.bounds.width,
-            height: 120
+            height: 80
         )
 
         // CALayer.render draws in UIKit coords (top-left origin) — flip the

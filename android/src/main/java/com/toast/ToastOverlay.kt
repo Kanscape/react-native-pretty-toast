@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import java.lang.ref.WeakReference
 import com.toast.anim.CutoutMorphAnimator
 import com.toast.anim.SlideAnimator
 import com.toast.anim.ToastAnimator
@@ -26,7 +27,14 @@ import com.toast.util.ToastConstants.DISMISS_CALLBACK_BUFFER_MS
  * Owns only lifecycle/state: show flags, auto-dismiss timer, and the
  * useDynamicIsland-changed recreate rule.
  */
-class ToastOverlay(private val activity: Activity) {
+class ToastOverlay(activity: Activity) {
+
+    // Hold the hosting Activity weakly so that if it's destroyed (rotation,
+    // finish, process trim) while the overlay still has state lying around,
+    // we don't keep it alive — we just bail out of any operation that needs it.
+    private val activityRef = WeakReference(activity)
+    private val activity: Activity?
+        get() = activityRef.get()
 
     private var views: ToastViewFactory.Built? = null
     private var animator: ToastAnimator? = null
@@ -132,7 +140,7 @@ class ToastOverlay(private val activity: Activity) {
         handler.removeCallbacksAndMessages(null)
         cutoutAnimator?.cancelPendingCallbacks()
 
-        val decorView = activity.window?.decorView as? ViewGroup
+        val decorView = activity?.window?.decorView as? ViewGroup
         views?.container?.let { decorView?.removeView(it) }
 
         views = null
@@ -145,6 +153,7 @@ class ToastOverlay(private val activity: Activity) {
     private fun ensureOverlay(): ToastViewFactory.Built? {
         views?.let { return it }
 
+        val activity = this.activity ?: return null
         val decorView = activity.window?.decorView as? ViewGroup ?: return null
         val density = Density.from(activity.resources)
 
@@ -164,7 +173,7 @@ class ToastOverlay(private val activity: Activity) {
                 density = density,
                 onBeforeShow = {
                     cancelStatusBarRestore()
-                    StatusBarController.hide(activity)
+                    this.activity?.let { StatusBarController.hide(it) }
                 },
             ).also { cutoutAnimator = it }
         } else {
@@ -199,7 +208,8 @@ class ToastOverlay(private val activity: Activity) {
         animator: ToastAnimator,
         enableSwipeDismiss: Boolean,
     ) {
-        val density = Density.from(activity.resources)
+        val resources = activity?.resources ?: return
+        val density = Density.from(resources)
         ToastGestureHandler(
             animator = animator,
             density = density,
@@ -219,7 +229,9 @@ class ToastOverlay(private val activity: Activity) {
     // cancel the restore before the status bar visibly flashes.
     private fun scheduleStatusBarRestore() {
         cancelStatusBarRestore()
-        val runnable = Runnable { StatusBarController.show(activity) }
+        val runnable = Runnable {
+            activity?.let { StatusBarController.show(it) }
+        }
         statusBarRestoreRunnable = runnable
         handler.postDelayed(runnable, STATUS_BAR_RESTORE_GRACE_MS)
     }

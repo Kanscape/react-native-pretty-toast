@@ -1,6 +1,7 @@
 import React, {
   createContext,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,11 +11,6 @@ import ToastViewNativeComponent from './ToastViewNativeComponent';
 import type { ToastConfig, ToastRef } from './types';
 
 export const ToastContext = createContext<ToastRef | null>(null);
-
-let idCounter = 0;
-function generateId(): string {
-  return `toast-${++idCounter}-${Date.now()}`;
-}
 
 type ToastEntry = ToastConfig & { id: string };
 
@@ -35,6 +31,24 @@ export function ToastProvider({
   const queueRef = useRef<ToastEntry[]>([]);
   const isShowingRef = useRef(false);
   const currentRef = useRef<ToastEntry | null>(null);
+  const idCounterRef = useRef(0);
+  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const generateId = useCallback(
+    (): string => `toast-${++idCounterRef.current}-${Date.now()}`,
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current !== null) {
+        clearTimeout(transitionTimeoutRef.current);
+        transitionTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const presentToast = useCallback((entry: ToastEntry) => {
     isShowingRef.current = true;
@@ -50,8 +64,13 @@ export function ToastProvider({
       // If visible is already true (e.g. swipe-dismissed while visible was still true),
       // we need to set false first so updateProps detects the change.
       setVisible(false);
-      // Use setTimeout to ensure React flushes the false before we set true
-      setTimeout(() => {
+      // Use setTimeout to ensure React flushes the false before we set true.
+      // Tracked in a ref so it can be cancelled on unmount.
+      if (transitionTimeoutRef.current !== null) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+      transitionTimeoutRef.current = setTimeout(() => {
+        transitionTimeoutRef.current = null;
         presentToast(next);
       }, 50);
     } else {
@@ -75,7 +94,7 @@ export function ToastProvider({
 
       return id;
     },
-    [presentToast]
+    [presentToast, generateId]
   );
 
   const dismiss = useCallback((id?: string) => {

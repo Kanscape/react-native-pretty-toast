@@ -137,8 +137,8 @@ import Combine
                 self.scheduleStatusBarRestore()
                 self.restoreKeyWindow()
 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    self.onDismiss?()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                    self?.onDismiss?()
                 }
             }
     }
@@ -186,6 +186,28 @@ import Combine
     private func cancelStatusBarRestore() {
         statusBarRestoreWorkItem?.cancel()
         statusBarRestoreWorkItem = nil
+    }
+
+    deinit {
+        // deinit may run on any thread; Timer.invalidate() must run on the
+        // runloop the timer was scheduled on (main), and UIWindow mutation is
+        // main-thread-only. Break the retain cycle asynchronously on main.
+        let window = overlayWindow
+        let dismissCancel = dismissCancellable
+        let tapCancel = tapCancellable
+        let timer = autoDismissTimer
+        let workItem = statusBarRestoreWorkItem
+        DispatchQueue.main.async {
+            timer?.invalidate()
+            workItem?.cancel()
+            dismissCancel?.cancel()
+            tapCancel?.cancel()
+            window?.stopBackdropSampling()
+            // Break PassThroughWindow → rootViewController → PrettyToastView →
+            // @ObservedObject window so the window can actually deallocate.
+            window?.rootViewController = nil
+            window?.isHidden = true
+        }
     }
 
     private func iconColors(for symbol: String) -> (Color, Color) {
