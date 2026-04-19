@@ -108,12 +108,12 @@ Both share the same queue and state — calls from either entry point behave ide
 
 Mount once at the root of your app.
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `children` | `ReactNode` | — | Your app tree. |
-| `useDynamicIsland` | `boolean` | `true` | When `false`, always use the slide-in variant even on Dynamic Island devices. |
-| `defaultConfig` | `ToastProviderDefaults` | — | Defaults merged into every toast. Per-toast values always win. Excludes content fields (`id`, `title`, `message`, `icon`, `iconSource`, `onPress`, `action`). |
-| `maxQueue` | `number` | unlimited | Max queue depth excluding the visible toast. When exceeded, the oldest queued toast is dropped. `0` disables queueing. |
+| Prop               | Type                    | Default   | Description                                                                                                                                                   |
+| ------------------ | ----------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `children`         | `ReactNode`             | —         | Your app tree.                                                                                                                                                |
+| `useDynamicIsland` | `boolean`               | `true`    | When `false`, always use the slide-in variant even on Dynamic Island devices.                                                                                 |
+| `defaultConfig`    | `ToastProviderDefaults` | —         | Defaults merged into every toast. Per-toast values always win. Excludes content fields (`id`, `title`, `message`, `icon`, `iconSource`, `onPress`, `action`). |
+| `maxQueue`         | `number`                | unlimited | Max queue depth excluding the visible toast. When exceeded, the oldest queued toast is dropped. `0` disables queueing.                                        |
 
 ```tsx
 <ToastProvider
@@ -139,30 +139,30 @@ const id = toast.show({
 
 #### `ToastConfig`
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `id` | `string` | auto | Stable identifier. Auto-generated if omitted. |
-| `icon` | `SFSymbolName` | — | SF Symbol name (e.g. `'checkmark.seal.fill'`). Ignored when `iconSource` is set. On Android it's mapped to a bundled drawable via substring match; on web, to a unicode glyph. |
-| `iconSource` | `ImageSourcePropType` | — | Custom image — `require(...)`, remote URL, or file URI. When set, overrides `icon`. |
-| `title` | `string` | — | Bold title line. |
-| `message` | `string` | — | Subtitle line. Pill height expands to fit. |
-| `duration` | `number` | `3000` | Auto-dismiss delay in ms. Ignored when `autoDismiss` is `false` or `duration <= 0`. |
-| `autoDismiss` | `boolean` | `true` | If `false`, toast stays until explicitly dismissed. |
-| `enableSwipeDismiss` | `boolean` | `true` | Swipe-up to dismiss. |
-| `accentColor` | `ColorValue` | derived | Overrides the color derived from the icon. Drives the icon tint and pill accent stroke. |
-| `strokeColor` | `ColorValue` | dynamic | Fixed stroke color. Pass `rgba(...)` if you want transparency. |
-| `disableBackdropSampling` | `boolean` | `false` | Skip the backdrop luminance sampler that flips the outline between accent and neutral over varying backdrops. |
-| `action` | `ToastAction` | — | Trailing button (`{ label, onPress }`). Tapping dismisses the toast. |
-| `accessibilityAnnouncement` | `string` | `title + message` | Custom screen-reader announcement. Empty string disables the announcement. |
-| `onPress` | `() => void` | — | Called when the user taps the pill (not the action). Dismisses the toast after. |
-| `onShow` | `() => void` | — | Fires when the toast begins presenting. |
-| `onHide` | `() => void` | — | Fires when the toast finishes dismissing, for any reason. |
-| `onAutoDismiss` | `() => void` | — | Fires only when dismissal was caused by the duration timer. Fires before `onHide`. |
+| Field                       | Type                  | Default           | Description                                                                                                                                                                    |
+| --------------------------- | --------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                        | `string`              | auto              | Stable identifier. Auto-generated if omitted.                                                                                                                                  |
+| `icon`                      | `SFSymbolName`        | —                 | SF Symbol name (e.g. `'checkmark.seal.fill'`). Ignored when `iconSource` is set. On Android it's mapped to a bundled drawable via substring match; on web, to a unicode glyph. |
+| `iconSource`                | `ImageSourcePropType` | —                 | Custom image — `require(...)`, remote URL, or file URI. When set, overrides `icon`.                                                                                            |
+| `title`                     | `string`              | —                 | Bold title line.                                                                                                                                                               |
+| `message`                   | `string`              | —                 | Subtitle line. Pill height expands to fit.                                                                                                                                     |
+| `duration`                  | `number`              | `3000`            | Auto-dismiss delay in ms. Ignored when `autoDismiss` is `false` or `duration <= 0`.                                                                                            |
+| `autoDismiss`               | `boolean`             | `true`            | If `false`, toast stays until explicitly dismissed.                                                                                                                            |
+| `enableSwipeDismiss`        | `boolean`             | `true`            | Swipe-up to dismiss.                                                                                                                                                           |
+| `accentColor`               | `ColorValue`          | derived           | Overrides the color derived from the icon. Drives the icon tint and pill accent stroke.                                                                                        |
+| `strokeColor`               | `ColorValue`          | dynamic           | Fixed stroke color. Pass `rgba(...)` if you want transparency.                                                                                                                 |
+| `disableBackdropSampling`   | `boolean`             | `false`           | Skip the backdrop luminance sampler that flips the outline between accent and neutral over varying backdrops.                                                                  |
+| `action`                    | `ToastAction`         | —                 | Trailing button (`{ label, onPress }`). Tapping dismisses the toast.                                                                                                           |
+| `accessibilityAnnouncement` | `string`              | `title + message` | Custom screen-reader announcement. Empty string disables the announcement.                                                                                                     |
+| `onPress`                   | `() => void`          | —                 | Called when the user taps the pill (not the action). Dismisses the toast after.                                                                                                |
+| `onShow`                    | `() => void`          | —                 | Fires when the toast begins presenting.                                                                                                                                        |
+| `onHide`                    | `() => void`          | —                 | Fires when the toast finishes dismissing, for any reason.                                                                                                                      |
+| `onAutoDismiss`             | `() => void`          | —                 | Fires only when dismissal was caused by the duration timer. Fires before `onHide`.                                                                                             |
 
 #### `ShowOptions`
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field   | Type      | Description                                                           |
+| ------- | --------- | --------------------------------------------------------------------- |
 | `force` | `boolean` | Preempt the currently visible toast and present this one immediately. |
 
 ```tsx
@@ -183,7 +183,10 @@ toast.loading(title, config?, options?); // autoDismiss defaults to false
 
 ```tsx
 toast.success('Saved');
-toast.error('Upload failed', { message: 'Check your connection', duration: 5000 });
+toast.error('Upload failed', {
+  message: 'Check your connection',
+  duration: 5000,
+});
 toast.loading('Uploading…');
 ```
 
@@ -194,7 +197,11 @@ Mutate an existing toast in place. Live toasts patch without re-running the ente
 ```tsx
 const id = toast.loading('Uploading…');
 // later
-toast.update(id, { title: 'Done', icon: 'checkmark.circle.fill', autoDismiss: true });
+toast.update(id, {
+  title: 'Done',
+  icon: 'checkmark.circle.fill',
+  autoDismiss: true,
+});
 ```
 
 ### `toast.promise(promise, messages)`
@@ -227,15 +234,15 @@ Multiple `toast.show()` calls are queued. Each toast is displayed after the prev
 
 The `icon` prop accepts any [SF Symbol](https://developer.apple.com/sf-symbols/) name. Browse the full catalog in Apple's SF Symbols app or online at **[sfsymbols.com](https://sfsymbols.com)**. Icon tint color is automatically determined:
 
-| Symbol contains | Color |
-|----------------|-------|
-| `checkmark` | Green |
-| `xmark` | Red |
-| `exclamation` | Orange |
-| `info` | Blue |
-| `heart` | Pink |
-| `arrow` | Blue |
-| Other | Gray |
+| Symbol contains | Color  |
+| --------------- | ------ |
+| `checkmark`     | Green  |
+| `xmark`         | Red    |
+| `exclamation`   | Orange |
+| `info`          | Blue   |
+| `heart`         | Pink   |
+| `arrow`         | Blue   |
+| Other           | Gray   |
 
 Override with `accentColor` for any custom tint.
 
