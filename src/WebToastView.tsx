@@ -43,8 +43,8 @@ function getIcon(symbol: string): IconInfo {
   return { glyph: null, color: '#FFFFFF' };
 }
 
-const ENTER_MS = 300;
-const EXIT_MS = 250;
+const ENTER_MS = 450;
+const EXIT_MS = 350;
 const ENTER_EASING = 'cubic-bezier(0.22, 1.2, 0.36, 1)';
 const EXIT_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
 const SWIPE_THRESHOLD = -40;
@@ -183,7 +183,7 @@ export default function WebToastView({
     transform = 'translate(-50%, 0) scale(1)';
     transition = `transform ${ENTER_MS}ms ${ENTER_EASING}, opacity ${ENTER_MS}ms ${ENTER_EASING}`;
   } else {
-    transform = 'translate(-50%, -30px) scale(0.85)';
+    transform = 'translate(-50%, -40px) scale(0.8)';
     transition = `transform ${ENTER_MS}ms ${ENTER_EASING}, opacity ${ENTER_MS}ms ${ENTER_EASING}`;
   }
   const opacity = isExiting ? 0 : entered ? 1 : 0;
