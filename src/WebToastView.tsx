@@ -23,7 +23,9 @@ export interface WebToastViewProps {
   onToastActionPress?: () => void;
 }
 
-const ICON_MAP: Array<[string, { glyph: string; color: string }]> = [
+type IconInfo = { glyph: string | null; color: string };
+
+const ICON_MAP: Array<[string, IconInfo]> = [
   ['checkmark', { glyph: '✓', color: '#30D158' }],
   ['xmark', { glyph: '✕', color: '#FF453A' }],
   ['info', { glyph: 'ℹ', color: '#0A84FF' }],
@@ -32,15 +34,13 @@ const ICON_MAP: Array<[string, { glyph: string; color: string }]> = [
   ['arrow.up', { glyph: '↑', color: '#0A84FF' }],
   ['arrow.down', { glyph: '↓', color: '#0A84FF' }],
   ['envelope', { glyph: '✉', color: '#FFFFFF' }],
-  ['wifi', { glyph: '📶', color: '#FFFFFF' }],
-  ['hand.tap', { glyph: '👆', color: '#FFFFFF' }],
 ];
 
-function getIcon(symbol: string): { glyph: string; color: string } {
+function getIcon(symbol: string): IconInfo {
   for (const [key, value] of ICON_MAP) {
     if (symbol.includes(key)) return value;
   }
-  return { glyph: '•', color: '#8E8E93' };
+  return { glyph: null, color: '#FFFFFF' };
 }
 
 const ENTER_MS = 300;
@@ -276,8 +276,19 @@ export default function WebToastView({
             alt=""
             style={{ width: 40, height: 40, objectFit: 'contain' }}
           />
-        ) : (
+        ) : glyph ? (
           glyph
+        ) : (
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            style={{ display: 'block' }}
+            aria-hidden="true"
+          >
+            <path d="M12 2.25a1 1 0 0 1 1 1v.6a7 7 0 0 1 6 6.93v3.36l1.38 2.07A1.25 1.25 0 0 1 19.34 18H4.66a1.25 1.25 0 0 1-1.04-1.94L5 14v-3.22a7 7 0 0 1 6-6.93v-.6a1 1 0 0 1 1-1Zm-2.5 17.25a2.5 2.5 0 0 0 5 0h-5Z" />
+          </svg>
         )}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
