@@ -1,8 +1,6 @@
-<p align="center">
-  <img src="./assets/logo.png" alt="react-native-pretty-toast" width="160" />
-</p>
-
 # react-native-pretty-toast
+
+https://github.com/user-attachments/assets/b59a22b7-913d-4bc3-9629-5549de5e28d4
 
 A toast library that actually uses the hardware cutout. The pill morphs out of the Dynamic Island on iPhone and out of the camera cutout on Android, expands to fit your content, and collapses back in — with sensible slide-in fallbacks on devices without a cutout.
 
@@ -300,3 +298,7 @@ toast.show({ title: 'Session expired' }, { force: true });
 ## License
 
 MIT
+
+<p align="center">
+  <img src="./assets/logo.png" alt="react-native-pretty-toast" width="160" />
+</p>
