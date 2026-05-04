@@ -13,6 +13,8 @@
 #import "react_native_dynamic_toast-Swift.h"
 #elif __has_include("Toast-Swift.h")
 #import "Toast-Swift.h"
+#elif __has_include(<Toast/Toast-Swift.h>)
+#import <Toast/Toast-Swift.h>
 #endif
 
 using namespace facebook::react;
