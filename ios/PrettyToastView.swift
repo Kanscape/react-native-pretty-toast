@@ -29,7 +29,7 @@ struct PrettyToastView: View {
             ZStack {
                 toastBackground()
                     .overlay {
-                        ToastContent(haveDynamicIsland, expandedWidth: expandedWidth)
+                        ToastContent(haveDynamicIsland, expandedWidth: expandedWidth, hasOverflow: overflow > 0)
                             .frame(width: expandedWidth, height: expandedHeight)
                             .scaleEffect(x: scaleX, y: scaleY)
                     }
@@ -64,10 +64,11 @@ struct PrettyToastView: View {
     }
 
     @ViewBuilder
-    func ToastContent(_ haveDynamicIsland: Bool, expandedWidth: CGFloat) -> some View {
+    func ToastContent(_ haveDynamicIsland: Bool, expandedWidth: CGFloat, hasOverflow: Bool) -> some View {
         if let toast = window.toast {
+            let pushBelowIsland = haveDynamicIsland && (!toast.message.isEmpty || hasOverflow)
             VStack(spacing: 0) {
-                if haveDynamicIsland && !toast.message.isEmpty {
+                if pushBelowIsland {
                     Spacer(minLength: 0)
                 }
 
@@ -106,7 +107,7 @@ struct PrettyToastView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, haveDynamicIsland && !toast.message.isEmpty ? 12 : 0)
+            .padding(.bottom, pushBelowIsland ? 12 : 0)
             .compositingGroup()
             .blur(radius: isExpanded ? 0 : 5)
             .opacity(isExpanded ? 1 : 0)

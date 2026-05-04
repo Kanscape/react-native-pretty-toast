@@ -540,6 +540,22 @@ function HomeScreen() {
             });
           },
         },
+        {
+          id: 'longtitleonly',
+          title: 'Long Title Only',
+          subtitle: 'Title wraps, no message body',
+          glyph: 'T',
+          tint: colors.systemIndigo,
+          onPress: () => {
+            toast.show({
+              icon: 'bell.fill',
+              title:
+                'Reminder: your subscription is about to renew next week so make sure your payment method is up to date',
+              message: '',
+              duration: 4000,
+            });
+          },
+        },
       ],
     },
     {
