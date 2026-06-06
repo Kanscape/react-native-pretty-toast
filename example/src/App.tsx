@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
   useColorScheme,
 } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import {
   toast as imperativeToast,
   ToastProvider,
@@ -679,6 +680,11 @@ function HomeScreen() {
 }
 
 export default function App() {
+  // The splash screen does not auto-hide on iOS, so dismiss it on mount.
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
+
   return (
     <ToastProvider
       useDynamicIsland={true}
