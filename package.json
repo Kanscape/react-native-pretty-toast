@@ -1,6 +1,6 @@
 {
-  "name": "react-native-pretty-toast",
-  "version": "1.0.1",
+  "name": "@celia-sh/react-native-pretty-toast",
+  "version": "1.0.2",
   "description": "React Native Toast but more capable",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -48,15 +48,16 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/blazejkustra/react-native-pretty-toast.git"
+    "url": "git+https://github.com/celia-sh/react-native-pretty-toast.git"
   },
   "author": "Blazej Kustra <kustrablazej@gmail.com> (https://github.com/blazejkustra)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/blazejkustra/react-native-pretty-toast/issues"
+    "url": "https://github.com/celia-sh/react-native-pretty-toast/issues"
   },
-  "homepage": "https://github.com/blazejkustra/react-native-pretty-toast#readme",
+  "homepage": "https://github.com/celia-sh/react-native-pretty-toast#readme",
   "publishConfig": {
+    "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {

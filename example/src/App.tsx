@@ -16,7 +16,7 @@ import {
   toast as imperativeToast,
   ToastProvider,
   useToast,
-} from 'react-native-pretty-toast';
+} from '@celia-sh/react-native-pretty-toast';
 import { version } from '../../package.json';
 
 // Imperative API demo: these helpers live outside the component tree

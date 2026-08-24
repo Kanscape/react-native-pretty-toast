@@ -1,4 +1,8 @@
-# react-native-pretty-toast
+# @celia-sh/react-native-pretty-toast
+
+> **CELIA self-use fork:** This package is maintained for CELIA's own internal
+> applications. It is a fork of the upstream project and is not intended as a
+> general-purpose public distribution or a replacement for upstream support.
 
 https://github.com/user-attachments/assets/b59a22b7-913d-4bc3-9629-5549de5e28d4
 
@@ -17,7 +21,7 @@ A toast library that actually uses the hardware cutout. The pill morphs out of t
 ## Installation
 
 ```sh
-npm install react-native-pretty-toast
+npm install @celia-sh/react-native-pretty-toast
 ```
 
 ### iOS Setup
@@ -56,7 +60,7 @@ package.
 Wrap your app with `ToastProvider` once at the root:
 
 ```tsx
-import { ToastProvider } from 'react-native-pretty-toast';
+import { ToastProvider } from '@celia-sh/react-native-pretty-toast';
 
 export default function App() {
   return (
@@ -74,7 +78,7 @@ You can trigger toasts two ways — pick whichever fits your use case:
 Import `toast` directly. Works in non-component code: API error handlers, redux middleware, utility modules, etc.
 
 ```tsx
-import { toast } from 'react-native-pretty-toast';
+import { toast } from '@celia-sh/react-native-pretty-toast';
 
 toast.show({
   icon: 'checkmark.seal.fill',
@@ -86,7 +90,7 @@ toast.show({
 ### 2. `useToast` hook (inside components)
 
 ```tsx
-import { useToast } from 'react-native-pretty-toast';
+import { useToast } from '@celia-sh/react-native-pretty-toast';
 
 function HomeScreen() {
   const toast = useToast();
