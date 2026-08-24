@@ -313,6 +313,13 @@ import UIKit
         statusBarRestoreWorkItem = nil
     }
 
+    // iPadOS keeps its status bar visible so the toast does not change the
+    // larger tablet navigation chrome. iPhone still hides it while the pill
+    // is presented.
+    private var shouldManageStatusBar: Bool {
+        UIDevice.current.userInterfaceIdiom != .pad
+    }
+
     // Expo and React Native use RCTStatusBarManager with
     // UIViewControllerBasedStatusBarAppearance=false. In that mode the
     // overlay hosting controller cannot control the status bar and iOS will
@@ -321,6 +328,8 @@ import UIKit
     // Expo/RN mode, while retaining the hosting-controller path for standalone
     // apps that explicitly opt into controller-based appearance.
     private func setStatusBarHidden(_ hidden: Bool) {
+        guard shouldManageStatusBar else { return }
+
         let usesViewControllerAppearance =
             (Bundle.main.object(forInfoDictionaryKey: "UIViewControllerBasedStatusBarAppearance") as? Bool) ?? false
 

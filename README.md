@@ -24,7 +24,8 @@ npm install react-native-pretty-toast
 
 #### Info.plist and Expo/RN status-bar ownership
 
-The toast supports both iOS status-bar ownership modes:
+On iPadOS, the toast always keeps the status bar visible. On iPhone, the toast
+supports both iOS status-bar ownership modes:
 
 - Apps using Expo or React Native's `StatusBar` manager should keep this key
   set to `false` (or omit it):
