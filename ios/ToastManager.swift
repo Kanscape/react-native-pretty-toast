@@ -15,6 +15,7 @@ import UIKit
     // Deferred so the status bar doesn't flash back in mid-collapse, and
     // cancellable so a queued toast keeps it hidden across the handoff.
     private var statusBarRestoreWorkItem: DispatchWorkItem?
+    private var statusBarWasHidden: Bool?
     private var imageLoadTask: URLSessionDataTask?
 
     @objc public var onDismiss: (() -> Void)?
@@ -72,7 +73,7 @@ import UIKit
                 overlayWindow.startBackdropSampling()
             }
             self.cancelStatusBarRestore()
-            self.hostingController?.isStatusBarHidden = true
+            self.setStatusBarHidden(true)
             overlayWindow.makeKey()
 
             self.cancelTimer()
@@ -300,7 +301,7 @@ import UIKit
         statusBarRestoreWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            self.hostingController?.isStatusBarHidden = false
+            self.setStatusBarHidden(false)
             self.restoreKeyWindow()
         }
         statusBarRestoreWorkItem = work
@@ -310,6 +311,32 @@ import UIKit
     private func cancelStatusBarRestore() {
         statusBarRestoreWorkItem?.cancel()
         statusBarRestoreWorkItem = nil
+    }
+
+    // Expo and React Native use RCTStatusBarManager with
+    // UIViewControllerBasedStatusBarAppearance=false. In that mode the
+    // overlay hosting controller cannot control the status bar and iOS will
+    // assert if an app tries to opt into controller-based appearance while
+    // RCTStatusBarManager is active. Use the public UIApplication API for the
+    // Expo/RN mode, while retaining the hosting-controller path for standalone
+    // apps that explicitly opt into controller-based appearance.
+    private func setStatusBarHidden(_ hidden: Bool) {
+        let usesViewControllerAppearance =
+            (Bundle.main.object(forInfoDictionaryKey: "UIViewControllerBasedStatusBarAppearance") as? Bool) ?? false
+
+        if usesViewControllerAppearance {
+            hostingController?.isStatusBarHidden = hidden
+            return
+        }
+
+        if hidden && statusBarWasHidden == nil {
+            statusBarWasHidden = UIApplication.shared.isStatusBarHidden
+        }
+        let nextHidden = hidden ? true : (statusBarWasHidden ?? false)
+        if !hidden {
+            statusBarWasHidden = nil
+        }
+        UIApplication.shared.setStatusBarHidden(nextHidden, with: .fade)
     }
 
     deinit {

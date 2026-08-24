@@ -22,30 +22,28 @@ npm install react-native-pretty-toast
 
 ### iOS Setup
 
-#### Required: Info.plist
+#### Info.plist and Expo/RN status-bar ownership
 
-Add or update this key in your app's `Info.plist`:
+The toast supports both iOS status-bar ownership modes:
 
-```xml
-<key>UIViewControllerBasedStatusBarAppearance</key>
-<true/>
-```
+- Apps using Expo or React Native's `StatusBar` manager should keep this key
+  set to `false` (or omit it):
 
-This is required for the toast to properly hide the status bar when displayed. Without it, the status bar will render on top of the toast.
+  ```xml
+  <key>UIViewControllerBasedStatusBarAppearance</key>
+  <false/>
+  ```
 
-**Expo users:** Add this to your `app.json`:
+  The toast falls back to the public `UIApplication` status-bar API in this
+  mode, so it does not conflict with `RCTStatusBarManager`.
 
-```json
-{
-  "expo": {
-    "ios": {
-      "infoPlist": {
-        "UIViewControllerBasedStatusBarAppearance": true
-      }
-    }
-  }
-}
-```
+- Standalone apps that do not use `RCTStatusBarManager` may set the key to
+  `true`; the toast then uses its overlay view controller's
+  `prefersStatusBarHidden` implementation.
+
+**Expo users:** do not set this key to `true` when using `expo-status-bar`.
+Keep the default/`false` value and rebuild the native app after installing the
+package.
 
 #### Requirements
 
